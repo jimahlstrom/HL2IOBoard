@@ -1,5 +1,5 @@
 # IO Board for the Hermes Lite 2 by N2ADR
-**April 16, 2022**
+**April 23, 2022**
 
 **This documentation is preliminary, and may change based on input from the HL2 community.**
 
@@ -82,37 +82,10 @@ The only read register is register 0.
  * A read from register 0 returns the firmware major version, the firmware minor version, the state of the input pins, and 0xFE.
 The input pin bits are In5, In4, In3, In2, In1, Exttr.
 
-There are currently (April 2022) three write registers.
- * Register 0 sets the transmit band index number according to this table.  Band zero means no band.
-It is possible to add more bands, and there is no requirement that bands be in order.
+These are the write registers as of April 23, 2022:
  * Register 1 is the receive input mode, 0, 1 or 2.
  * Register 2 is the fan voltage as a number from 0 to 255.
-
-|Amateur Band| Band Index|
-|------------|-----------|
-|137k |   1|
-|500k |   2|
-|160  |   3|
-|80   |   4|
-|60   |   5|
-|40   |   6|
-|30   |   7|
-|20   |   8|
-|17   |   9|
-|15   |  10|
-|12   |  11|
-|10   |  12|
-|6    |  13|
-|4    |  14|
-|2    |  15|
-|1.25 |  16|
-|70cm |  17|
-|33cm |  18|
-|23cm |  19|
-|13cm |  20|
-|9cm  |  21|
-|5cm  |  22|
-|3cm  |  23|
+ * Registers 4, 5, 6, 7 and 8 are the transmit frequency in Hertz. Register 4 is the least significant byte, 8 is the most. Registers must be written in order from 4 to 8.
 
 ## Modifications to SDR PC Software
 
@@ -120,8 +93,8 @@ Since the HL2 can read and write the I2C bus to communicate with the IO board, i
 authors (Quisk, Spark, Power SDR, etc.) to write extensive logic to control IO. This is NOT the desired result. Instead
 users should write new firmware to provide the services they require. It is easy to write firmware for the Pico.
 Ideally, an owner of a given power amp, for example HR50, would write a custom firmware and provide a wiring diagram
-for that amp. The only required SDR modification is sending the transmit band index number, and that is taken from
-a fixed table and is not adjustable by the user.
+for that amp. The only required SDR modification is sending the transmit frequency. The transmit frequency can be read
+by HamLib CAT in case an external helper program is used.
 
 *Do NOT ask authors to modify SDR software! Write new firmware instead!*
 
