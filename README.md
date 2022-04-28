@@ -1,5 +1,5 @@
 # IO Board for the Hermes Lite 2 by N2ADR
-**April 23, 2022**
+**April 28, 2022**
 
 **This documentation is preliminary, and may change based on input from the HL2 community.**
 
