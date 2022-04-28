@@ -72,20 +72,24 @@ such as a one-wire bus or an I2C bus. The Icom AH-4 antenna tuner can be control
 There is a 15x18 mm bare copper area for prototyping. There is a 1x5 and 1x2 header to plug in a perf board for additional area.
 
 The board has a DB9 connector and the pins are wired to a 1x9 pin header. The outputs go to two 2x4 headers, and the inputs go to a 1x5 header.
-Other IO goes to small pads that take 28 gage solid hookup wire. The headers are not installed. Wire everything up as desired with hookup
+Other IO goes to small pads. The headers are not installed. Wire everything up as desired with hookup
 wire to the pads and to the DB9 pads. Of course, you can add headers if desired.
 
 ## IO Board Firmware
 The microcontroller listens to I2C address 0x1D and you can read and write to registers at this address.
-Reads always return the bus address and four bytes of data.
+Reads always return four bytes of data. Writes always send one byte.
 The only read register is register 0.
  * A read from register 0 returns the firmware major version, the firmware minor version, the state of the input pins, and 0xFE.
-The input pin bits are In5, In4, In3, In2, In1, Exttr.
+The input pin bits are In5, In4, In3, In2, In1, Exttr. Beware of byte order.
 
-These are the write registers as of April 23, 2022:
- * Register 1 is the receive input mode, 0, 1 or 2.
- * Register 2 is the fan voltage as a number from 0 to 255.
- * Registers 4, 5, 6, 7 and 8 are the transmit frequency in Hertz. Register 4 is the least significant byte, 8 is the most. Registers must be written in order from 4 to 8.
+These are the write registers as of April 28, 2022:
+ * Register 0 is a temporary buffer for multi-byte data
+ * Register 1 is a temporary buffer for multi-byte data
+ * Register 2 is a temporary buffer for multi-byte data
+ * Register 3 is a temporary buffer for multi-byte data
+ * Register 11 is the receive input mode, 0, 1 or 2.
+ * Register 12 is the fan voltage as a number from 0 to 255.
+ * Register 13 is the most significant byte of the Tx frequency. To send Tx frequency write registers LSB 0, 1, 2, 3, 13 MSB.
 
 ## Modifications to SDR PC Software
 
