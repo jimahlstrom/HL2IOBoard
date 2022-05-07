@@ -1,5 +1,5 @@
 # IO Board for the Hermes Lite 2 by N2ADR
-**April 28, 2022**
+**May 2, 2022**
 
 **This documentation is preliminary, and may change based on input from the HL2 community.**
 
@@ -82,14 +82,14 @@ The only read register is register 0.
  * A read from register 0 returns the firmware major version, the firmware minor version, the state of the input pins, and 0xFE.
 The input pin bits are In5, In4, In3, In2, In1, Exttr. Beware of byte order.
 
-These are the write registers as of April 28, 2022:
- * Register 0 is a temporary buffer for multi-byte data
- * Register 1 is a temporary buffer for multi-byte data
- * Register 2 is a temporary buffer for multi-byte data
- * Register 3 is a temporary buffer for multi-byte data
+These are the write registers as of May 2, 2022:
+ * Register 0 is a temporary buffer for multi-byte data.
+ * Register 1 is a temporary buffer for multi-byte data.
+ * Register 2 is a temporary buffer for multi-byte data.
+ * Register 3 is a temporary buffer for multi-byte data.
  * Register 11 is the receive input mode, 0, 1 or 2.
  * Register 12 is the fan voltage as a number from 0 to 255.
- * Register 13 is the most significant byte of the Tx frequency. To send Tx frequency write registers LSB 0, 1, 2, 3, 13 MSB.
+ * Register 13 is the least significant byte of the Tx frequency in Hertz. To send Tx frequency write registers MSB 0, 1, 2, 3, 13 LSB.
 
 ## Modifications to SDR PC Software
 
@@ -101,5 +101,24 @@ for that amp. The only required SDR modification is sending the transmit frequen
 by HamLib CAT in case an external helper program is used.
 
 *Do NOT ask authors to modify SDR software! Write new firmware instead!*
+
+### Transmit Frequency
+
+SDR software must send the transmit frequency to provide band information to power amps, transverters and loop antennas.
+You can wait for the band to change, and then just send a frequency in the band. For example, if the
+user presses the 40 meter button, send 7.0 MHz. This is enough to determine the band, but not enough to tune a loop antenna.
+You can send the exact Tx frequency, but since the user is probably doing a lot of tuning, it is best to limit the I2C
+traffic. Quisk sends the Tx frequency at maximum rate of once every 0.5 seconds, and only if it changes. The frequency
+data in registers 0, 1, 2 and 3 are static, and are only used when register 13 is written. So you don't need to re-send them unless
+they change. Quisk makes no use of this, and always sends all five registers.
+
+### RF Receive Input
+
+The mode control 0, 1 or 2 is a user setting. There needs to be an option to set this.
+
+### Fan Control
+
+The fan speed control can be an internal calculation based on temperature, as is currently the case for the fan control
+in the HL2 gateware. I don't see the need for a user option for this.
 
 **Further documentation is coming, stay tuned. Please provide feedback, especially if you see a problem.**
