@@ -1,0 +1,142 @@
+Capacitor C4
+Value 0.33u, 0805_2012Metric
+Part Number AVX, 08055C334K4T2A
+Substitute X7R, 10%, 16 V
+
+Capacitor (18) B9 B1 B8 B7 B6 B10 B15 B17 B12 B5 B2 B11 B14 B16 B18 B21 B20 B19
+Value 100n, 0805_2012Metric
+Part Number AVX, 08055C104JAT2A
+Substitute X7R 50 volt
+
+Capacitor C1 C2 C3
+Value 1500p, 0805_2012Metric
+Part Number AVX, 08055A152JAT2A
+Substitute C0G 50 volt
+
+Capacitor C5
+Value 1u, 0805_2012Metric
+Part Number AVX, 0805YC105KAT2A
+Substitute X7R, 10%, 16 V
+
+Connector J10 J9
+Value 142-0701-851, BNCEDGE
+Manufacturer Cinch
+Substitute SMA end launch; consider panel mount
+
+Connector J5
+Value LD09P13A4GX00LF, DSUB-9 Male Horizontal
+Manufacturer Amphenol
+
+Connector J1
+Value Conn_02x25_Odd_Even, Socket 2x25, 2.54 mm, 13.6 mm insulation height
+Part Number Oupiin, 2047-2X25G00S3U
+Substitute ESW-125-48-G-D. Insulation height determines back panel hole height.
+
+Diode D6
+Value B0530WS-7-F, SOD-323
+Manufacturer Diodes Incorporated
+Substitute schottky rectifier, minimum 10 V, 300 ma
+
+Diode D2 D3 D4 D5 D7 D1
+Value RB751V40T1G, SOD-323
+Manufacturer ON Semiconductor
+Substitute schottky switching diode, low forward drop, low reverse leakage, minimum 20 V, 5 ma
+
+IC U1
+Value Pico, RPi_Pico_SMD_TH
+
+IC U6
+Value MC74HCT04ADR2G, SO-14_3.9x8.65mm_P1.27mm
+
+IC U11
+Value PCA9536D, SOIC-8_3.9x4.9mm_P1.27mm
+
+IC U9
+Value LM4040DIM3X-3.0/NOPB, SOT-23
+
+IC U2 U3 U4
+Value MASWSS0179TR-3000, SOT-23-6
+
+IC U13
+Value TLV9351IDCKR, SOT-353_SC-70-5
+
+IC U5
+Value AS78L05RTR-E1, SOT-89-3
+Substitute MC78L05ACHT1G or similar
+
+IC U8
+Value TBD62381AFNG,EL, SSOP-18_4.4x6.5mm_P0.65mm
+
+IC U7
+Value 74HCT541PW,118, TSSOP-20_4.4x6.5mm_P0.65mm
+
+Inductor L1 L2
+Value 1.8u, 0805_2012Metric
+Part Number TDK, MLF2012A1R8JT000
+Substitute ferrite inductor low power, good Q
+
+Resistor R7 R11 R33 R1 R34 R4 R35 R36
+Value 10K, 0805_2012Metric
+Part Number Yageo, RC0805JR-0710KL
+Substitute resistor 5%
+
+Resistor R8 R13 R22 R23 R24 R27 R28
+Value 1K, 0805_2012Metric
+Part Number Yageo, RC0805JR-071KL
+Substitute resistor 5%
+
+Resistor R32
+Value 27K, 0805_2012Metric
+Part Number Yageo, RC0805JR-0727KL
+Substitute resistor 5%
+
+Resistor R10 R29
+Value 2K7, 0805_2012Metric
+Part Number Yageo, RC0805JR-072K7L
+Substitute resistor 5%
+
+Resistor R6 R19 R20 R21 R26
+Value 330K, 0805_2012Metric
+Part Number Yageo, RC0805JR-07330KL
+Substitute resistor 5%
+
+Resistor R3
+Value 470, 0805_2012Metric
+Part Number Yageo, RC0805JR-07470RL
+Substitute resistor 5%
+
+Resistor R12 R14 R15 R16 R25
+Value 470K, 0805_2012Metric
+Part Number Yageo, RC0805JR-07470KL
+Substitute resistor 5%
+
+Resistor R5 R17 R18 R9 R30 R31
+Value 4K7, 0805_2012Metric
+Part Number Yageo, RC0805JR-074K7L
+Substitute resistor 5%
+
+Resistor R2
+Value 51, 0805_2012Metric
+Part Number Yageo, RC0805JR-0751RL
+Substitute resistor 5%
+
+Transistor Q4 Q5
+Value BC847C-13-F, SOT-23
+Manufacturer Diodes Incorporated
+Substitute NPN, minimum 20 V, 10 ma
+
+Transistor Q2 Q3
+Value SSM3J374R,LF, SOT-23
+Manufacturer Toshiba
+Substitute MOSFET, P-ch, minimum 20 V, 300 ma
+
+Transistor Q6
+Value FCX491ATA, SOT-89-3
+Manufacturer Diodes Incorporated
+Substitute NPN, minimum 20 V, 300 ma
+
+Transistor Q1
+Value NUD3160LT1G, SOT23_3
+Manufacturer On Semiconductor
+Substitute power switch, N-ch, minimum 20 V, 100 ma
+

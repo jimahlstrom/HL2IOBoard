@@ -39,7 +39,7 @@ alignment when soldering. The IO board has a 2x25 pin header. When installed, th
 ![](./pictures/HL2Mod.jpg)
 
 ## Design of the IO Board Hardware
-Please refer to the [schematic](pictures/HL2IOBoard.pdf).
+Please refer to the [schematic](KiCad/HL2IOBoard.pdf).
 The IO board has two I2C addresses. Address 0x41 register 0 is a read only register that returns the hardware version number
 in bits 3 to 0, and 0xF in bits 7 to 4. So for this hardware version, it returns 0xF1. If other IO boards become available,
 they will return different version numbers. This is the hardware version and will be returned even if the firmware is not running.
@@ -69,7 +69,7 @@ These resources can be used for various purposes. The pico has two UARTs. Output
 A "low-side switch" is a mosfet to ground. They are commonly used to switch relays. But they can also implement a wired-or bus
 such as a one-wire bus or an I2C bus. The Icom AH-4 antenna tuner can be controlled this way.
 
-There is a 15x18 mm bare copper area for prototyping. There is a 1x5 and 1x2 header to plug in a perf board for additional area.
+There is a 15x18 mm bare copper area for prototyping. There is a 1x5 header J2 and a 1x2 header J12 to plug in a perf board for additional area.
 
 The board has a DB9 connector and the pins are wired to a 1x9 pin header. The outputs go to two 2x4 headers, and the inputs go to a 1x5 header.
 Other IO goes to small pads. The headers are not installed. Wire everything up as desired with hookup
@@ -114,11 +114,11 @@ they change. Quisk makes no use of this, and always sends all five registers.
 
 ### RF Receive Input
 
-The mode control 0, 1 or 2 is a user setting. There needs to be an option to set this.
+The mode control 0, 1 or 2 is a user setting. There needs to be an option to set this. Quisk has this option.
 
 ### Fan Control
 
 The fan speed control can be an internal calculation based on temperature, as is currently the case for the fan control
-in the HL2 gateware. I don't see the need for a user option for this.
+in the HL2 gateware. I don't see the need for a user option for this. Quisk does not implement the fan.
 
 **Further documentation is coming, stay tuned. Please provide feedback, especially if you see a problem.**
