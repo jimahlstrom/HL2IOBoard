@@ -1,5 +1,5 @@
 # IO Board for the Hermes Lite 2 by N2ADR
-**May 2, 2022**
+**May 14, 2022**
 
 **This documentation is preliminary, and may change based on input from the HL2 community.**
 
@@ -76,6 +76,8 @@ Other IO goes to small pads. The headers are not installed. Wire everything up a
 wire to the pads and to the DB9 pads. Of course, you can add headers if desired.
 
 ## IO Board Firmware
+The source code for the firmware is [main.c](main.c). It uses the I2C slave library by Valentin Milea, and this is included.
+
 The microcontroller listens to I2C address 0x1D and you can read and write to registers at this address.
 Reads always return four bytes of data. Writes always send one byte.
 The only read register is register 0.
