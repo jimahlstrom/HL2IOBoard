@@ -1,5 +1,5 @@
 # IO Board for the Hermes Lite 2 by N2ADR
-**May 14, 2022**
+**June 8, 2022**
 
 **This documentation is preliminary, and may change based on input from the HL2 community.**
 
@@ -39,13 +39,15 @@ alignment when soldering. The IO board has a 2x25 pin header. When installed, th
 ![](./pictures/HL2Mod.jpg)
 
 ## Design of the IO Board Hardware
+The IO board is a four-layer PCB. Rather large parts are used, with none smaller than 0805 (2012 metric). It is designed to be easy to solder at home. It is only necessary to mount the parts you plan to use.
+
 Please refer to the [schematic](KiCad/HL2IOBoard.pdf).
 The IO board has two I2C addresses. Address 0x41 register 0 is a read only register that returns the hardware version number
 in bits 3 to 0, and 0xF in bits 7 to 4. So for this hardware version, it returns 0xF1. If other IO boards become available,
 they will return different version numbers. This is the hardware version and will be returned even if the firmware is not running.
 Reading this register can test whether the filter board is installed.
 
-The microcontroller listens to I2C address 0x1D. This is distinct from the filter board I2C address, and the IO board will
+The Pico microcontroller listens to I2C address 0x1D. This is distinct from the filter board I2C address, and the IO board will
 not conflict with or control the filter board. The IO board has these resources controlled by the Pico:
 
  * Eight 5 volt CMOS outputs and eight low-side switches (mosfets to ground). Both are controlled by the same Pico pin,
@@ -78,6 +80,8 @@ wire to the pads and to the DB9 pads. Of course, you can add headers if desired.
 ## IO Board Firmware
 The source code for the firmware is [main.c](main.c). It uses the I2C slave library by Valentin Milea, and this is included.
 
+There is an LED on the Pico microcontroller. When the firmware is running, it flashes slowly. When the Pico receives I2C traffic directed to its address, it flashes faster.
+
 The microcontroller listens to I2C address 0x1D and you can read and write to registers at this address.
 Reads always return four bytes of data. Writes always send one byte.
 The only read register is register 0.
@@ -92,6 +96,8 @@ These are the write registers as of May 2, 2022:
  * Register 11 is the receive input mode, 0, 1 or 2.
  * Register 12 is the fan voltage as a number from 0 to 255.
  * Register 13 is the least significant byte of the Tx frequency in Hertz. To send Tx frequency write registers MSB 0, 1, 2, 3, 13 LSB.
+
+If you modify main.c be careful with i2c_slave_handler(), as it is an interrupt service routine. Return quickly and do not put printf's here! For long running jobs, just set a flag and look for it in the loop at the end of main().
 
 ## Modifications to SDR PC Software
 
