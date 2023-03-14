@@ -21,6 +21,8 @@
 //    Register 12 is the fan voltage as a number from 0 to 255.
 //    Register 13 is the least significant byte of the Tx frequency. Send the Tx frequency as MSB register 0, 1, 2, 3, 13 LSB.
 
+#define TEST_PATTERN			0	// Test only. Apply a test pattern to output ports. Zero for normal operation.
+
 #define USE_OUT8_FT817_BAND_VOLTS	1	// Output band volts on J4 pin 8.
 #define USE_IN1_OUT1_FOR_UART		0	// UART Rx is J8 pin 1, UART Tx in J4 pin 1.
 
@@ -161,7 +163,9 @@ int main()
 			current_tx_freq = new_tx_freq;
 			OnNewTxFreq(current_tx_freq);
 		}
-		//TestPattern();
+#if TEST_PATTERN
+		TestPattern();
+#endif
 	}
 }
 
@@ -232,8 +236,8 @@ static void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event)
 				}
 				break;
 			case 13:		// Tx frequency, LSB
-				new_tx_freq = (uint64_t)buffer0 << 32;
-				new_tx_freq |= data | buffer3 << 8 | buffer2 << 16 | buffer1 << 24;
+				new_tx_freq = (uint64_t)buffer0 << 32;	// Thanks to Neil, G4BRK
+				new_tx_freq |= (uint64_t)data | (uint64_t)buffer3 << 8 | (uint64_t)buffer2 << 16 | (uint64_t)buffer1 << 24;
 			}
 		}
 		break;
@@ -416,13 +420,19 @@ static void IrqRxTxChange(uint gpio, uint32_t events)
 	}
 }
 
+#if TEST_PATTERN
 static void TestPattern()
 {  // Used to test IO board features.  Not used in production.
 	static uint8_t tester = 0;
 	static uint16_t fan = 0;
 
+	if ( ! fan) {
+		fan = 128;
+		pwm_set_wrap(FAN_SLICE, FAN_WRAP);
+		pwm_set_chan_level(FAN_SLICE, FAN_CHAN, FAN_WRAP * fan / 255);
+		pwm_set_enabled(FAN_SLICE, true);
+	}
 	tester++;
-	fan++;
 	// Toggle Switched 5 and 12 volt outputs
 	gpio_put(GPIO01_Sw12, tester & 0x08);
 	gpio_put(GPIO12_Sw5,  tester & 0x08);
@@ -438,3 +448,4 @@ static void TestPattern()
 	gpio_put(GPIO08_Out8, tester & 0x80);
 #endif
 }
+#endif

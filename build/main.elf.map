@@ -1163,9 +1163,9 @@ Discarded input sections
  .bss           0x0000000000000000        0x0 CMakeFiles/main.dir/i2c_slave/i2c_slave.c.obj
  .text.i2c_slave_deinit
                 0x0000000000000000       0x60 CMakeFiles/main.dir/i2c_slave/i2c_slave.c.obj
- .text          0x0000000000000000        0x0 /tmp/ccSSC1w1.o
- .data          0x0000000000000000        0x0 /tmp/ccSSC1w1.o
- .bss           0x0000000000000000        0x0 /tmp/ccSSC1w1.o
+ .text          0x0000000000000000        0x0 /tmp/ccopTu2W.o
+ .data          0x0000000000000000        0x0 /tmp/ccopTu2W.o
+ .bss           0x0000000000000000        0x0 /tmp/ccopTu2W.o
  .data          0x0000000000000000        0x0 /usr/lib/gcc/arm-none-eabi/9.2.1/thumb/v6-m/nofp/libgcc.a(_dvmd_tls.o)
  .bss           0x0000000000000000        0x0 /usr/lib/gcc/arm-none-eabi/9.2.1/thumb/v6-m/nofp/libgcc.a(_dvmd_tls.o)
  .text          0x0000000000000000       0x10 /usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/lib/thumb/v6-m/nofp/libc.a(lib_a-atexit.o)
@@ -1386,7 +1386,7 @@ LOAD /usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/lib/thumb/v6-m/nofp
 .boot2          0x0000000010000000      0x100
                 0x0000000010000000                __boot2_start__ = .
  *(.boot2)
- .boot2         0x0000000010000000      0x100 /tmp/ccSSC1w1.o
+ .boot2         0x0000000010000000      0x100 /tmp/ccopTu2W.o
                 0x0000000010000100                __boot2_end__ = .
                 0x0000000000000001                ASSERT (((__boot2_end__ - __boot2_start__) == 0x100), ERROR: Pico second stage bootloader must be 256 bytes in size)
 
@@ -1991,9 +1991,9 @@ LOAD /usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/lib/thumb/v6-m/nofp
  .rodata.str1.4
                 0x0000000010005a84       0x49 CMakeFiles/main.dir/main.c.obj
  *fill*         0x0000000010005acd        0x3 
- .rodata.__bi_98.6334
+ .rodata.__bi_100.6334
                 0x0000000010005ad0        0xc CMakeFiles/main.dir/main.c.obj
- .rodata.__bi_99.6337
+ .rodata.__bi_101.6337
                 0x0000000010005adc        0xc CMakeFiles/main.dir/main.c.obj
  .rodata.cutoff.6388
                 0x0000000010005ae8       0xc0 CMakeFiles/main.dir/main.c.obj
@@ -2076,9 +2076,9 @@ LOAD /usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/lib/thumb/v6-m/nofp
 
 .binary_info    0x0000000010005e94       0x30
  *(.binary_info.keep.*)
- .binary_info.keep.__bi_ptr98
+ .binary_info.keep.__bi_ptr100
                 0x0000000010005e94        0x4 CMakeFiles/main.dir/main.c.obj
- .binary_info.keep.__bi_ptr99
+ .binary_info.keep.__bi_ptr101
                 0x0000000010005e98        0x4 CMakeFiles/main.dir/main.c.obj
  .binary_info.keep.__bi_ptr22
                 0x0000000010005e9c        0x4 CMakeFiles/main.dir/home/jim/pub/pico/pico-sdk/src/rp2_common/pico_standard_link/binary_info.c.obj
@@ -2475,7 +2475,7 @@ LOAD CMakeFiles/main.dir/home/jim/pub/pico/pico-sdk/src/rp2_common/pico_unique_i
 LOAD CMakeFiles/main.dir/home/jim/pub/pico/pico-sdk/src/rp2_common/hardware_flash/flash.c.obj
 LOAD CMakeFiles/main.dir/home/jim/pub/pico/pico-sdk/src/rp2_common/hardware_i2c/i2c.c.obj
 LOAD CMakeFiles/main.dir/i2c_slave/i2c_slave.c.obj
-LOAD /tmp/ccSSC1w1.o
+LOAD /tmp/ccopTu2W.o
 LOAD /usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/lib/thumb/v6-m/nofp/libstdc++.a
 LOAD /usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/lib/thumb/v6-m/nofp/libm.a
 START GROUP
@@ -2597,7 +2597,7 @@ LOAD linker stubs
  .ARM.attributes
                 0x000000000000082c       0x2c CMakeFiles/main.dir/i2c_slave/i2c_slave.c.obj
  .ARM.attributes
-                0x0000000000000858       0x22 /tmp/ccSSC1w1.o
+                0x0000000000000858       0x22 /tmp/ccopTu2W.o
  .ARM.attributes
                 0x000000000000087a       0x1e /usr/lib/gcc/arm-none-eabi/9.2.1/thumb/v6-m/nofp/libgcc.a(_dvmd_tls.o)
  .ARM.attributes
