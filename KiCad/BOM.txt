@@ -49,8 +49,7 @@ IC U6
 Value MC74HCT04ADR2G, SO-14_3.9x8.65mm_P1.27mm
 
 IC U11
-Value PCA9536D, SOIC-8_3.9x4.9mm_P1.27mm
-Substitute PCA9536DR
+Value PCA9536DR, SOIC-8_3.9x4.9mm_P1.27mm
 
 IC U9
 Value LM4040DIM3X-3.0/NOPB, SOT-23
@@ -66,7 +65,7 @@ Value AS78L05RTR-E1, SOT-89-3
 Substitute MC78L05ACHT1G or similar
 
 IC U8
-Value TBD62381AFNG,EL, SSOP-18_4.4x6.5mm_P0.65mm
+Value TBD62381AFWG,EL, SOIC-18 7.5mm wide
 
 IC U7
 Value 74HCT541PW,118, TSSOP-20_4.4x6.5mm_P0.65mm
@@ -139,5 +138,5 @@ Substitute NPN, minimum 20 V, 300 ma
 Transistor Q1
 Value NUD3160LT1G, SOT23_3
 Manufacturer On Semiconductor
-Substitute power switch, N-ch, minimum 20 V, 100 ma
+Substitute DRDC3105F-7
 

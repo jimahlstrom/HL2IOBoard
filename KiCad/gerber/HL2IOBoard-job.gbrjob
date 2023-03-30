@@ -5,7 +5,7 @@
       "Application": "Pcbnew",
       "Version": "6.0.2+dfsg-1"
     },
-    "CreationDate": "2023-03-28T12:08:37-04:00"
+    "CreationDate": "2023-03-30T12:38:25-04:00"
   },
   "GeneralSpecs": {
     "ProjectId": {
@@ -43,57 +43,57 @@
   ],
   "FilesAttributes": [
     {
-      "Path": "HL2IOBoard-F_Cu.gbr",
+      "Path": "HL2IOBoard-F_Cu.gtl",
       "FileFunction": "Copper,L1,Top",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "HL2IOBoard-In1_Cu.gbr",
+      "Path": "HL2IOBoard-In1_Cu.g2",
       "FileFunction": "Copper,L2,Inr",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "HL2IOBoard-In2_Cu.gbr",
+      "Path": "HL2IOBoard-In2_Cu.g3",
       "FileFunction": "Copper,L3,Inr",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "HL2IOBoard-B_Cu.gbr",
+      "Path": "HL2IOBoard-B_Cu.gbl",
       "FileFunction": "Copper,L4,Bot",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "HL2IOBoard-F_Paste.gbr",
+      "Path": "HL2IOBoard-F_Paste.gtp",
       "FileFunction": "SolderPaste,Top",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "HL2IOBoard-B_Paste.gbr",
+      "Path": "HL2IOBoard-B_Paste.gbp",
       "FileFunction": "SolderPaste,Bot",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "HL2IOBoard-F_Silkscreen.gbr",
+      "Path": "HL2IOBoard-F_Silkscreen.gto",
       "FileFunction": "Legend,Top",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "HL2IOBoard-B_Silkscreen.gbr",
+      "Path": "HL2IOBoard-B_Silkscreen.gbo",
       "FileFunction": "Legend,Bot",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "HL2IOBoard-F_Mask.gbr",
+      "Path": "HL2IOBoard-F_Mask.gts",
       "FileFunction": "SolderMask,Top",
       "FilePolarity": "Negative"
     },
     {
-      "Path": "HL2IOBoard-B_Mask.gbr",
+      "Path": "HL2IOBoard-B_Mask.gbs",
       "FileFunction": "SolderMask,Bot",
       "FilePolarity": "Negative"
     },
     {
-      "Path": "HL2IOBoard-Edge_Cuts.gbr",
+      "Path": "HL2IOBoard-Edge_Cuts.gm1",
       "FileFunction": "Profile",
       "FilePolarity": "Positive"
     }
