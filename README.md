@@ -102,6 +102,8 @@ If you modify main.c be careful with i2c_slave_handler(), as it is an interrupt 
 The IO board connects to the I2C interface in the Hermes Lite 2.
 The [HL2 protocol](https://github.com/softerhardware/Hermes-Lite2/wiki/Protocol)
 provides a way to send and receive I2C messages from host SDR software to the IO board to control its operation. Please see the firmware protocol to see what to send.
+Address 0x41 register 0 is a read only register that returns the hardware version number
+in bits 3 to 0, and 0xF in bits 7 to 4. Reading this register can test whether the filter board is installed.
 
 Since the PC can read and write the I2C bus to communicate with the IO board, it would be possible for SDR software
 authors (Quisk, Spark, Power SDR, etc.) to write extensive logic to control IO. This is NOT the desired result. Instead
