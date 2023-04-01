@@ -75,6 +75,39 @@ The board has a DB9 connector and the pins are wired to a 1x9 pin header. The ou
 Other IO goes to small pads. The headers are not installed. Wire everything up as desired with hookup
 wire to the pads and to the DB9 pads. Of course, you can add headers if desired.
 
+### Table of IO Resources
+
+|Software Pin Name |Usage|Connector Reference|
+|------------------|-----|-------------------|
+|GPIO00_HPF|Control HPF in Rx path||
+|GPIO01_Sw12|Switched VSUP (usually 12 volts)|Sw12|
+|GPIO02_RF3|Control Pure Signal input||
+|GPIO03_INTTR|Control HL2 T/R relay||
+|GPIO04_Fan|Zero to VSUP fan voltage|J3|
+|GPIO05_xxx|
+|GPIO06_In5|Protected logic input|J8 pin 5|
+|GPIO07_In4|Protected logic input|J8 pin 4|
+|GPIO08_Out8|
+|GPIO09_Out7|5V logic ; low side switch|J4 pin 7 ; J6 pin 7|
+|GPIO10_Out5|
+|GPIO11_Out4|
+|GPIO12_Sw5|
+|GPIO13_EXTTR|
+|GPIO14_I2C1_SDA|
+|GPIO15_I2C1_SCL|
+|GPIO16_Out1|
+|GPIO17_In1|Protected logic input|J8 pin 1|
+|GPIO18_In2|Protected logic input|J8 pin 2|
+|GPIO19_Out2|
+|GPIO20_Out3|
+|GPIO21_In3|Protected logic input|J8 pin 3|
+|GPIO22_Out6|
+|GPIO25_LED|
+|GPIO26_ADC0|
+|GPIO27_ADC1|
+|GPIO28_ADC2|
+
+
 ## IO Board Firmware
 The source code for the firmware is [main.c](main.c). It uses the I2C slave library by Valentin Milea, and this is included.
 
