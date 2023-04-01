@@ -1,22 +1,18 @@
 # IO Board for the Hermes Lite 2 by N2ADR
-**June 8, 2022**
+**April 1, 2023**
 
 **Please click the left button "-  ----" above for a navigation menu.**
 
-**This documentation is preliminary, and may change based on input from the HL2 community.**
+**This documentation is preliminary, and may change based on input from the HL2 community. Further documentation is coming, stay tuned. Please provide feedback, especially if you see a problem.**
 
-**Further documentation is coming, stay tuned. Please provide feedback, especially if you see a problem.**
+This project is a 5 by 10 cm printed circuit board and related firmware. The board mounts above the N2ADR filter board in the same box as the Hermes Lite 2. The PC running the SDR software sends the transmit frequency to the board. The microcontroller on the board then uses the board's switches to control an amplifier, switch antenns or transverters, etc. There are a variety of IO resources available and there will be different microcontroller software for each application. The IO board is meant to be a general purpose solution to control hardware attached to the HL2.
 
-This project is a 5 by 10 cm printed circuit board and related firmware. The board has a Pico microcontroller and IO resources including
+The board has a Pico microcontroller and IO resources including
 5 volt gates, low side switches, a fan controller, and a UART. There are two SMA connectors for a separate Rx input and a Pure Signal input.
 The board plugs into the [Hermes Lite 2](http://www.hermeslite.com) main board and replaces the 2x20 jumper that connects to the N2ADR filter board.
 The board sits directly above the filter board as shown in the photos below.
 
-The IO board connects to the existing I2C interface in the Hermes Lite 2 (the "HL2").
-The [HL2 protocol](https://github.com/softerhardware/Hermes-Lite2/wiki/Protocol)
-provides a way to send and receive I2C message from host SDR software running on a PC. These I2C messages can be directed to the IO board to
-control its operation. The microcontroller can respond to these messages by switching relays and controlling an attached power amplifier.
-The user can modify the microcontroller firmware to control whatever external devices are present.
+To use the board it will be necessary to choose which switches you need and solder wire jumpers from the switches to the DB9 connector. Then you must write or download firmware for the Pico that will operate the switches based on the transmit frequency.
 
 
 #### IO board mounted above the filter board
@@ -103,17 +99,20 @@ If you modify main.c be careful with i2c_slave_handler(), as it is an interrupt 
 
 ## Modifications to SDR PC Software
 
-Since the HL2 can read and write the I2C bus to communicate with the IO board, it would be possible for SDR software
+The IO board connects to the I2C interface in the Hermes Lite 2.
+The [HL2 protocol](https://github.com/softerhardware/Hermes-Lite2/wiki/Protocol)
+provides a way to send and receive I2C messages from host SDR software to the IO board to control its operation. Please see the firmware protocol to see what to send.
+
+Since the PC can read and write the I2C bus to communicate with the IO board, it would be possible for SDR software
 authors (Quisk, Spark, Power SDR, etc.) to write extensive logic to control IO. This is NOT the desired result. Instead
 users should write new firmware to provide the services they require. It is easy to write firmware for the Pico.
-Ideally, an owner of a given power amp, for example HR50, would write a custom firmware and provide a wiring diagram
-for that amp. The only required SDR modification is sending the transmit frequency. The transmit frequency can be read
-by HamLib CAT in case an external helper program is used.
+Ideally, an owner of a given power amp, for example HR50, would write a custom firmware and provide a wiring diagram for that amp.
 
 *Do NOT ask authors to modify SDR software! Write new firmware instead!*
 
 ### Transmit Frequency
 
+The only required SDR modification is sending the transmit frequency.
 SDR software must send the transmit frequency to provide band information to power amps, transverters and loop antennas.
 You can wait for the band to change, and then just send a frequency in the band. For example, if the
 user presses the 40 meter button, send 7.0 MHz. This is enough to determine the band, but not enough to tune a loop antenna.
