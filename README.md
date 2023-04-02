@@ -109,17 +109,34 @@ wire to the pads and to the DB9 pads. Of course, you can add headers if desired.
 
 
 ## IO Board Firmware
-The source code for the firmware is [main.c](main.c). It uses the I2C slave library by Valentin Milea, and this is included.
+Firmwares for the Pico are in subdirectories of HL2IOBoard. Look in the source files to see what they do.
 
-There is an LED on the Pico microcontroller. When the firmware is running, it flashes slowly. When the Pico receives I2C traffic directed to its address, it flashes faster.
+- n2adr_test   Test program to toggle the 5 volt outputs.
+- n2adr_basic  Very basic example.
+- n2adr_lib    Library of useful subroutines used in the above.
 
-The microcontroller listens to I2C address 0x1D and you can read and write to registers at this address.
+To create your own firmware, install the Pico SDK and create a directory for your code.
+You may want to clone my github project to get you started.
+Export the location of your SDK: export PICO_SDK_PATH=/home/jim/etc/pico-sdk.
+Copy the file pico-sdk/external/pico_sdk_import.cmake to your directory.
+Copy my CMakeLists.txt and main.c to your directory and edit them as desired.
+Make a "build" subdirectory.
+Change directories to the build directory and enter "cmake .." and "make".
+See the Pico documentation for more detail.
+
+To install the firmware, power off the HL2 and connect a USB cable to the IO Board.
+Push the button on the IO Board and then plug the USB cable into your PC.
+The Pico will appear as a flash drive on the PC. Then copy the file build/main.uf2 to the Pico. 
+
+There is an LED on the Pico. When the firmware is running, it flashes slowly. When the Pico receives I2C traffic directed to its address, it flashes faster.
+
+The Pico listens to I2C address 0x1D and you can read and write to registers at this address.
 Reads always return four bytes of data. Writes always send one byte.
 The only read register is register 0.
  * A read from register 0 returns the firmware major version, the firmware minor version, the state of the input pins, and 0xFE.
 The input pin bits are In5, In4, In3, In2, In1, Exttr. Beware of byte order.
 
-These are the write registers as of May 2, 2022:
+These are the write registers as of April 2, 2023:
  * Register 0 is a temporary buffer for multi-byte data.
  * Register 1 is a temporary buffer for multi-byte data.
  * Register 2 is a temporary buffer for multi-byte data.
@@ -128,7 +145,7 @@ These are the write registers as of May 2, 2022:
  * Register 12 is the fan voltage as a number from 0 to 255.
  * Register 13 is the least significant byte of the Tx frequency in Hertz. To send Tx frequency write registers MSB 0, 1, 2, 3, 13 LSB.
 
-If you modify main.c be careful with i2c_slave_handler(), as it is an interrupt service routine. Return quickly and do not put printf's here! For long running jobs, just set a flag and look for it in the loop at the end of main().
+Be careful with i2c_slave_handler(), as it is an interrupt service routine. Return quickly and do not put printf's here! Just set a flag and look for it in the loop at the end of main().
 
 ## Modifications to SDR PC Software
 
