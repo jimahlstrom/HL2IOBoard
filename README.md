@@ -1,5 +1,5 @@
 # IO Board for the Hermes Lite 2 by N2ADR
-**April 1, 2023**
+**April 2, 2023**
 
 **Please click the left button "-  ----" above for a navigation menu.**
 
