@@ -84,28 +84,28 @@ wire to the pads and to the DB9 pads. Of course, you can add headers if desired.
 |GPIO02_RF3|Control Pure Signal input||
 |GPIO03_INTTR|Control HL2 T/R relay||
 |GPIO04_Fan|Zero to VSUP fan voltage|J3|
-|GPIO05_xxx|
+|GPIO05_xxx|not connected||
 |GPIO06_In5|Protected logic input|J8 pin 5|
 |GPIO07_In4|Protected logic input|J8 pin 4|
-|GPIO08_Out8|
+|GPIO08_Out8|5V logic ; low side switch|J4 pin 8 ; J6 pin 8|
 |GPIO09_Out7|5V logic ; low side switch|J4 pin 7 ; J6 pin 7|
-|GPIO10_Out5|
-|GPIO11_Out4|
-|GPIO12_Sw5|
-|GPIO13_EXTTR|
-|GPIO14_I2C1_SDA|
-|GPIO15_I2C1_SCL|
-|GPIO16_Out1|
+|GPIO10_Out5|5V logic ; low side switch|J4 pin 5 ; J6 pin 5|
+|GPIO11_Out4|5V logic ; low side switch|J4 pin 4 ; J6 pin 4|
+|GPIO12_Sw5|Switched 5 volts|Sw5|
+|GPIO13_EXTTR|Logic input EXTTR, High for Rx, low for Tx||
+|GPIO14_I2C1_SDA|HL2 I2C bus||
+|GPIO15_I2C1_SCL|HL2 I2C bus||
+|GPIO16_Out1|5V logic ; low side switch|J4 pin 1 ; J6 pin 1|
 |GPIO17_In1|Protected logic input|J8 pin 1|
 |GPIO18_In2|Protected logic input|J8 pin 2|
-|GPIO19_Out2|
-|GPIO20_Out3|
+|GPIO19_Out2|5V logic ; low side switch|J4 pin 2 ; J6 pin 2|
+|GPIO20_Out3|5V logic ; low side switch|J4 pin 3 ; J6 pin 3|
 |GPIO21_In3|Protected logic input|J8 pin 3|
-|GPIO22_Out6|
-|GPIO25_LED|
-|GPIO26_ADC0|
-|GPIO27_ADC1|
-|GPIO28_ADC2|
+|GPIO22_Out6|5V logic ; low side switch|J4 pin 6 ; J6 pin 6|
+|GPIO25_LED|Pico on-board LED||
+|GPIO26_ADC0|not connected||
+|GPIO27_ADC1|not connected||
+|GPIO28_ADC2|not connected||
 
 
 ## IO Board Firmware
