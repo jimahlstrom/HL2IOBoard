@@ -140,3 +140,5 @@ Value NUD3160LT1G, SOT23_3
 Manufacturer On Semiconductor
 Substitute DRDC3105F-7
 
+Connectors J2, J3, J4, J6, J7, J8, J12
+These pin headers are not installed.
