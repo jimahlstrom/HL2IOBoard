@@ -65,7 +65,9 @@ Mode 2 means the receive input is used during Rx and the Pure Signal input is us
  * Pico GPIO 26, 27 and 28 are unused. They can be used for 3.3 volt logic or for ADC inputs. The ADC reference is 3.00 volts.
  * Any Pico pins can be used directly at 3.3 volt logic.
 
-These resources can be used for various purposes. The pico has two UARTs. Output 1 and Input 1 can be used for UART Tx and Rx.
+These resources can be used for various purposes. The Pico has two UARTs. Output 1 and Input 1 can be used for UART Tx and Rx. Note that the signal voltages are zero and five volts. This is common for communication between microcontrollers. But the standard RS232 levels are more like plus and minus eight volts, so a connection to a PC will require an interface IC.
+
+
 A "low-side switch" is a mosfet to ground. They are commonly used to switch relays. But they can also implement a wired-or bus
 such as a one-wire bus or an I2C bus. The Icom AH-4 antenna tuner can be controlled this way.
 
@@ -152,8 +154,8 @@ Be careful with i2c_slave_handler(), as it is an interrupt service routine. Retu
 The IO board connects to the I2C interface in the Hermes Lite 2.
 The [HL2 protocol](https://github.com/softerhardware/Hermes-Lite2/wiki/Protocol)
 provides a way to send and receive I2C messages from host SDR software to the IO board to control its operation. Please see the firmware protocol to see what to send.
-Address 0x41 register 0 is a read only register that returns the hardware version number
-in bits 3 to 0, and 0xF in bits 7 to 4. Reading this register can test whether the filter board is installed.
+Quisk uses the ACK bit with I2C commands. As described in the protocol, these commands should
+be sent at intervals so they don't disrupt normal protocol commands.
 
 Since the PC can read and write the I2C bus to communicate with the IO board, it would be possible for SDR software
 authors (Quisk, Spark, Power SDR, etc.) to write extensive logic to control IO. This is NOT the desired result. Instead
