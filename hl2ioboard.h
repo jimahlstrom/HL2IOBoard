@@ -8,6 +8,7 @@
 #include <hardware/pwm.h>
 #include <pico/binary_info.h>
 #include <pico/stdlib.h>
+#include <stdio.h>
 
 #define I2C1_ADDRESS	0x1D
 #define I2C1_BAUDRATE	(400 * 1000)
@@ -53,6 +54,7 @@ void fast_led_flasher(void);
 void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event);
 void IrqRxTxChange(uint gpio, uint32_t events);
 void ft817_band_volts(uint8_t band);
+int tx_freq_to_band(uint64_t freq);
 
 extern uint8_t firmware_version_major;
 extern uint8_t firmware_version_minor;

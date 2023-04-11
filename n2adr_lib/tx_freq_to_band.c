@@ -41,13 +41,13 @@ int tx_freq_to_band(uint64_t freq)
 	} ;
 
 	if (cutoff[index - 1] <= freq && freq <= cutoff[index]) {
-		//printf ("Keep index %d\n", index);
+		//printf ("Keep index %d for %lld\n", index, freq);
 		return index;		// no change in band
 	}
 	for (index = 1; index < MAX_FREQ_INDEX; index++) {
 		if (cutoff[index - 1] <= freq && freq <= cutoff[index])
 			break;
 	}
-	//printf ("New index %d\n", index);
+	//printf ("New index %d for %lld\n", index, freq);
 	return index;
 }

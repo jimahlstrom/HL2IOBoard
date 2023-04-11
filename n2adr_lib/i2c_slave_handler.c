@@ -64,12 +64,13 @@ void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event)
 				pwm_set_chan_level(FAN_SLICE, FAN_CHAN, FAN_WRAP * data / 255);
 				break;
 			case 13:		// Tx frequency, LSB
-				new_tx_freq = (uint64_t)buffer0 << 32;	// Thanks to Neil, G4BRK
-				new_tx_freq |= (uint64_t)data | (uint64_t)buffer3 << 8 | (uint64_t)buffer2 << 16 | (uint64_t)buffer1 << 24;
+				new_tx_freq = (uint64_t)data | (uint64_t)buffer3 << 8 | (uint64_t)buffer2 << 16
+					| (uint64_t)buffer1 << 24 | (uint64_t)buffer0 << 32;	// Thanks to Neil, G4BRK
 				if (new_tx_freq <= 2500000)
 					gpio_put(GPIO00_HPF, 0);
 				else
 					gpio_put(GPIO00_HPF, 1);
+				break;
 			}
 		}
 		break;
