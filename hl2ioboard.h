@@ -48,7 +48,6 @@
 #define GPIO28_ADC2	28
 
 void configure_pins(int use_uart1, int use_pwm4a);
-void test_pattern(void);
 void configure_led_flasher(void);
 void fast_led_flasher(void);
 void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event);

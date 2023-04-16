@@ -2,8 +2,10 @@
 //   Copyright (c) 2022-2023 James C. Ahlstrom <jahlstr@gmail.com>.
 //   It is licensed under the MIT license. See MIT.txt.
 
-// This firmware toggles pins 1 to 7 on connector J4, and toggles the 5 and 12 volt outputs.
-// It outputs 3.00 volts on J4 pin 8, and sets the fan to 0.5 * VSUP.
+// This is used to test IO board features.
+// It outputs 3.0 volts on J4 pin 8, and sets the fan to 0.5 * VSUP.
+// It outputs pulses of 1,2,3,4,5,6,7 milliseconds on J4 pins 1 to 7.
+// It toggles the 5 and 12 volt switched outputs at 500 and 250 Hz.
 
 #include "../hl2ioboard.h"
 
@@ -11,16 +13,54 @@
 uint8_t firmware_version_major=1;
 uint8_t firmware_version_minor=0;
 
+
 int main()
 {
+	uint8_t tester = 0;
+
 	stdio_init_all();
 	configure_pins(0, 1);
 	pwm_set_chan_level(FAN_SLICE, FAN_CHAN, FAN_WRAP * 128 / 255);
 	configure_led_flasher();
-	ft817_band_volts(12);		// 3.00 volts
+	ft817_band_volts(12);		// 3.0 volts
 
-	while (1) {	// wait for something to happen
+	while (1) {
 		sleep_ms(1);
-		test_pattern();
+		tester++;
+		// Toggle Switched 5 and 12 volt outputs
+		gpio_put(GPIO01_Sw12, tester & 0x02);
+		gpio_put(GPIO12_Sw5,  tester & 0x01);
+		switch (tester & 0x0F) {	// ouptput pulse of 1,2,3,4,5,6,7 milliseconds
+		case 0:
+			gpio_put(GPIO16_Out1, 1);
+			gpio_put(GPIO19_Out2, 1);
+			gpio_put(GPIO20_Out3, 1);
+			gpio_put(GPIO11_Out4, 1);
+			gpio_put(GPIO10_Out5, 1);
+			gpio_put(GPIO22_Out6, 1);
+			gpio_put(GPIO09_Out7, 1);
+			break;
+		case 1:
+			gpio_put(GPIO16_Out1, 0);
+			break;
+		case 2:
+			gpio_put(GPIO19_Out2, 0);
+			break;
+		case 3:
+			gpio_put(GPIO20_Out3, 0);
+			break;
+		case 4:
+			gpio_put(GPIO11_Out4, 0);
+			break;
+		case 5:
+			gpio_put(GPIO10_Out5, 0);
+			break;
+		case 6:
+			gpio_put(GPIO22_Out6, 0);
+			break;
+		case 7:
+			gpio_put(GPIO09_Out7, 0);
+			break;
+		}
 	}
 }
