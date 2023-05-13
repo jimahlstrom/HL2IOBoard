@@ -1,5 +1,5 @@
 # IO Board for the Hermes Lite 2 by N2ADR
-**April 2, 2023**
+**May 13, 2023**
 
 **Please click the left button "-  ----" above for a navigation menu.**
 
@@ -35,6 +35,19 @@ VSUP is the 12 volt HL2 input supply taken after the fuse.
 It is convenient to place the 2x20 pin header across the existing pins and the three added pins to provide
 alignment when soldering. The IO board has a 2x25 pin header. When installed, this connects the HL2 to the filter board as usual.
 ![](./pictures/HL2Mod.jpg)
+
+## Initial Testing of the IO Board
+First program the Pico with the test program.
+Power off the HL2 and connect a USB cable to the IO Board.
+Push the button on the Pico and then plug the USB cable into your PC.
+The Pico will appear as a flash drive on the PC. Then copy the file n2adr_test/build/main.uf2 to the Pico. The Pico will reboot and the Pico LED will flash slowly.
+
+Now apply power to the HL2 and the IO board. Use an oscilloscope to see the test signals.
+  * Look for pulses of 1,2,3,4,5,6,7 milliseconds on J4 pins 1 to 7.
+  * Look for 3.0 volts DC on J4 pin 8.
+  * Look for 0.5 * supply voltage at J3 pin 1.
+  * Look for a 5.0 volt 500 Hz square wave at Sw5.
+  * Look for a supply voltage 250 Hz square wave at Sw12.
 
 ## Design of the IO Board Hardware
 The IO board is a four-layer PCB. Rather large parts are used, with none smaller than 0805 (2012 metric). It is designed to be easy to solder at home. It is only necessary to mount the parts you plan to use.
@@ -127,7 +140,7 @@ Change directories to the build directory and enter "cmake .." and "make".
 See the Pico documentation for more detail.
 
 To install the firmware, power off the HL2 and connect a USB cable to the IO Board.
-Push the button on the IO Board and then plug the USB cable into your PC.
+Push the button on the Pico and then plug the USB cable into your PC.
 The Pico will appear as a flash drive on the PC. Then copy the file build/main.uf2 to the Pico. 
 
 There is an LED on the Pico. When the firmware is running, it flashes slowly. When the Pico receives I2C traffic directed to its address, it flashes faster.
