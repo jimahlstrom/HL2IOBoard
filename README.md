@@ -151,14 +151,21 @@ The only read register is register 0.
  * A read from register 0 returns the firmware major version, the firmware minor version, the state of the input pins, and 0xFE.
 The input pin bits are In5, In4, In3, In2, In1, Exttr. Beware of byte order.
 
-These are the write registers as of April 2, 2023:
- * Register 0 is a temporary buffer for multi-byte data.
- * Register 1 is a temporary buffer for multi-byte data.
- * Register 2 is a temporary buffer for multi-byte data.
- * Register 3 is a temporary buffer for multi-byte data.
- * Register 11 is the receive input mode, 0, 1 or 2.
- * Register 12 is the fan voltage as a number from 0 to 255.
- * Register 13 is the least significant byte of the Tx frequency in Hertz. To send Tx frequency write registers MSB 0, 1, 2, 3, 13 LSB.
+### Table of I2C Registers
+
+|Register|Name|Description|
+|--------|----|-----------|
+|0|REG_BUFFER_0|Temporary buffer for multi-byte data|
+|1|REG_BUFFER_1|Temporary buffer for multi-byte data|
+|2|REG_BUFFER_2|Temporary buffer for multi-byte data|
+|3|REG_BUFFER_3|Temporary buffer for multi-byte data|
+|4|REG_FIRMWARE_MAJOR|Proposed: Firmware major version|
+|5|REG_FIRMWARE_MINOR|Proposed: Firmware minor version|
+|6|REG_INPUT_PINS|Proposed: The input pin bits: In5, In4, In3, In2, In1, Exttr|
+|11|REG_RF_INPUTS|The receive input mode, 0, 1 or 2|
+|12|REG_FAN_SPEED|The fan voltage as a number from 0 to 255|
+|13|REG_TX_FREQUENCY|The least significant byte of the Tx frequency in Hertz. To send Tx frequency write registers MSB 0, 1, 2, 3, 13 LSB|
+|14|REG_ANTENNA_TUNER|Proposed|
 
 Be careful with i2c_slave_handler(), as it is an interrupt service routine. Return quickly and do not put printf's here! Just set a flag and look for it in the loop at the end of main().
 
