@@ -159,9 +159,9 @@ The input pin bits are In5, In4, In3, In2, In1, Exttr. Beware of byte order.
 |1|REG_BUFFER_1|Temporary buffer for multi-byte data|
 |2|REG_BUFFER_2|Temporary buffer for multi-byte data|
 |3|REG_BUFFER_3|Temporary buffer for multi-byte data|
-|4|REG_FIRMWARE_MAJOR|Proposed: Firmware major version|
-|5|REG_FIRMWARE_MINOR|Proposed: Firmware minor version|
-|6|REG_INPUT_PINS|Proposed: The input pin bits: In5, In4, In3, In2, In1, Exttr|
+|4|REG_FIRMWARE_MAJOR|Proposed: Read only. Firmware major version|
+|5|REG_FIRMWARE_MINOR|Proposed: Read only. Firmware minor version|
+|6|REG_INPUT_PINS|Proposed: Read only. The input pin bits: In5, In4, In3, In2, In1, Exttr|
 |11|REG_RF_INPUTS|The receive input mode, 0, 1 or 2|
 |12|REG_FAN_SPEED|The fan voltage as a number from 0 to 255|
 |13|REG_TX_FREQUENCY|The least significant byte of the Tx frequency in Hertz. To send Tx frequency write registers MSB 0, 1, 2, 3, 13 LSB|
