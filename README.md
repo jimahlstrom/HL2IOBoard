@@ -1,5 +1,5 @@
 # IO Board for the Hermes Lite 2 by N2ADR
-**May 13, 2023**
+**June 26, 2023**
 
 **Please click the left button "-  ----" above for a navigation menu.**
 
@@ -138,6 +138,7 @@ Copy my CMakeLists.txt and main.c to your directory and edit them as desired.
 Make a "build" subdirectory.
 Change directories to the build directory and enter "cmake .." and "make".
 See the Pico documentation for more detail.
+Be careful with i2c_slave_handler(), as it is an interrupt service routine. Return quickly and do not put printf's here! Just set a flag and look for it in the loop at the end of main().
 
 To install the firmware, power off the HL2 and connect a USB cable to the IO Board.
 Push the button on the Pico and then plug the USB cable into your PC.
@@ -145,11 +146,10 @@ The Pico will appear as a flash drive on the PC. Then copy the file build/main.u
 
 There is an LED on the Pico. When the firmware is running, it flashes slowly. When the Pico receives I2C traffic directed to its address, it flashes faster.
 
-The Pico listens to I2C address 0x1D and you can read and write to registers at this address.
-Reads always return four bytes of data. Writes always send one byte.
-The only read register is register 0.
- * A read from register 0 returns the firmware major version, the firmware minor version, the state of the input pins, and 0xFE.
-The input pin bits are In5, In4, In3, In2, In1, Exttr. Beware of byte order.
+The Pico listens to I2C address 0x1D and you can read and write to registers at this address. Writes always send one byte.
+Reads always return four bytes of data.
+A read from a register returns that register and the next three.
+A read from address zero has been changed. To get the data previously returned from address zero, read register four.
 
 ### Table of I2C Registers
 
@@ -159,15 +159,22 @@ The input pin bits are In5, In4, In3, In2, In1, Exttr. Beware of byte order.
 |1|REG_BUFFER_1|Temporary buffer for multi-byte data|
 |2|REG_BUFFER_2|Temporary buffer for multi-byte data|
 |3|REG_BUFFER_3|Temporary buffer for multi-byte data|
-|4|REG_FIRMWARE_MAJOR|Proposed: Read only. Firmware major version|
-|5|REG_FIRMWARE_MINOR|Proposed: Read only. Firmware minor version|
-|6|REG_INPUT_PINS|Proposed: Read only. The input pin bits: In5, In4, In3, In2, In1, Exttr|
+|4|REG_FIRMWARE_MAJOR|Read only. Firmware major version|
+|5|REG_FIRMWARE_MINOR|Read only. Firmware minor version|
+|6|REG_INPUT_PINS|Read only. The input pin bits: In5, In4, In3, In2, In1, Exttr|
 |11|REG_RF_INPUTS|The receive input mode, 0, 1 or 2|
 |12|REG_FAN_SPEED|The fan voltage as a number from 0 to 255|
 |13|REG_TX_FREQUENCY|The least significant byte of the Tx frequency in Hertz. To send Tx frequency write registers MSB 0, 1, 2, 3, 13 LSB|
-|14|REG_ANTENNA_TUNER|Proposed|
+|14|REG_ANTENNA_TUNER|See the antenna tuner protocol below|
 
-Be careful with i2c_slave_handler(), as it is an interrupt service routine. Return quickly and do not put printf's here! Just set a flag and look for it in the loop at the end of main().
+#### Antenna Tuner
+
+A write to register REG_ANTENNA_TUNER is a command to the tuner. I am modeling this on the Icom AH-4 but I want it to work in general. A write of 1 starts a tune request.
+A write of 2 is a bypass command. Other tuners may have more commands. The Pico will talk to the ATU and change the register to higher numbers to indicate progress.
+The PC must read this register while tuning progresses. If the register reads as 0xEE the PC must send RF to the ATU, and stop RF when 0xEE stops.
+A final value of zero indicates a successful tune. Values of 0xF0 and higher indicate that tuning failed.
+Note that the IO board can not initiate RF and so the need for 0xEE.
+SDR software is not required to implement this command. In the future there may be an external program to do this.
 
 ## Modifications to SDR PC Software
 
