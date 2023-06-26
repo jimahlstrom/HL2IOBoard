@@ -70,10 +70,9 @@ change bands in external amplifiers. If not needed, output 8 can still be an out
  * A source of switched 5 volt power.
  * A variable DC voltage from zero to about 12 volts. This is intended to drive a fan.
  * A logic input that reads the state of EXTTR from the HL2.
+ * An SMA receive input.
  * Control for a switched high pass filter in the receive input.
- * A mode control to determine how the receive and Pure Signal inputs are used. Mode 0 means that the receive input is not used,
-but the Pure Signal input is available. Mode 1 means that the receive input is used instead of the usual HL2 input, and the Pure Signal input is not available.
-Mode 2 means the receive input is used during Rx and the Pure Signal input is used during Tx.
+ * An SMA Pure Signal input.
  * Pico GPIO 5 is unused.
  * Pico GPIO 26, 27 and 28 are unused. They can be used for 3.3 volt logic or for ADC inputs. The ADC reference is 3.00 volts.
  * Any Pico pins can be used directly at 3.3 volt logic.
@@ -162,10 +161,17 @@ A read from address zero has been changed. To get the data previously returned f
 |4|REG_FIRMWARE_MAJOR|Read only. Firmware major version|
 |5|REG_FIRMWARE_MINOR|Read only. Firmware minor version|
 |6|REG_INPUT_PINS|Read only. The input pin bits: In5, In4, In3, In2, In1, Exttr|
-|11|REG_RF_INPUTS|The receive input mode, 0, 1 or 2|
+|11|REG_RF_INPUTS|The receive input usage, 0, 1 or 2. See below|
 |12|REG_FAN_SPEED|The fan voltage as a number from 0 to 255|
 |13|REG_TX_FREQUENCY|The least significant byte of the Tx frequency in Hertz. To send Tx frequency write registers MSB 0, 1, 2, 3, 13 LSB|
 |14|REG_ANTENNA_TUNER|See the antenna tuner protocol below|
+
+#### Receive Input Usage
+
+This determines how the receive input J9 and the Pure Signal input J10 are used. Mode 0 means that the receive input is not used,
+but the Pure Signal input is available. Mode 1 means that the receive input is used instead of the usual HL2 input,
+and the Pure Signal input is not available. Mode 2 means that the receive input is used for receive, and the Pure
+Signal input is used for transmit.
 
 #### Antenna Tuner
 
