@@ -11,9 +11,9 @@
 //gpio_init(GPIO28_ADC2);
 
 // Configure all pins on the Pico. If use_uart1, use the UART on J4 pin1 and J8 pin 1.
-// If use_pwm4a, use pulse width modulation on J4 pin 8. This must be set to use ft817_band_volts.
+// If use_pwm4a, use pulse width modulation on J4 pin 8. This must be set in order to use ft817_band_volts().
 
-void configure_pins(int use_uart1, int use_pwm4a)
+void configure_pins(bool use_uart1, bool use_pwm4a)
 {
 	// configure I2C1 for slave mode
 	gpio_init(GPIO14_I2C1_SDA);	gpio_set_function(GPIO14_I2C1_SDA, GPIO_FUNC_I2C);

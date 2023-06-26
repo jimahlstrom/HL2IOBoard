@@ -10,6 +10,7 @@ add_library(hl2ioboard STATIC
 	led_flasher.c
 	i2c_slave_handler.c
 	ft817_band_volts.c
+	icom_ah4.c
 	tx_freq_to_band.c)
 target_link_libraries(hl2ioboard
 	pico_stdlib

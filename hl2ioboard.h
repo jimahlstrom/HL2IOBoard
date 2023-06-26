@@ -47,14 +47,32 @@
 #define GPIO27_ADC1	27
 #define GPIO28_ADC2	28
 
-void configure_pins(int use_uart1, int use_pwm4a);
+// Register numbers
+#define REG_BUFFER_0		0
+#define REG_BUFFER_1		1
+#define REG_BUFFER_2		2
+#define REG_BUFFER_3		3
+#define REG_FIRMWARE_MAJOR	4
+#define REG_FIRMWARE_MINOR	5
+#define REG_INPUT_PINS		6
+#define REG_RF_INPUTS		11
+#define REG_FAN_SPEED		12
+#define REG_TX_FREQUENCY	13
+#define REG_ANTENNA_TUNER	14
+
+typedef void (*irq_handler)(uint8_t register_number, uint8_t register_datum);
+
+void configure_pins(bool use_uart1, bool use_pwm4a);
 void configure_led_flasher(void);
 void fast_led_flasher(void);
 void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event);
 void IrqRxTxChange(uint gpio, uint32_t events);
 void ft817_band_volts(uint8_t band);
-int tx_freq_to_band(uint64_t freq);
+uint8_t tx_freq_to_band(uint64_t freq);
+void IcomAh4(uint8_t, uint8_t);
 
 extern uint8_t firmware_version_major;
 extern uint8_t firmware_version_minor;
 extern uint64_t new_tx_freq;
+extern uint8_t Registers[256];
+extern irq_handler IrqHandler[256];
