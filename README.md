@@ -1,5 +1,5 @@
 # IO Board for the Hermes Lite 2 by N2ADR
-**June 26, 2023**
+**July 12, 2023**
 
 **Please click the left button "-  ----" above for a navigation menu.**
 
@@ -154,16 +154,16 @@ A read from address zero has been changed. To get the data previously returned f
 
 |Register|Name|Description|
 |--------|----|-----------|
-|0|REG_BUFFER_0|Temporary buffer for multi-byte data|
-|1|REG_BUFFER_1|Temporary buffer for multi-byte data|
-|2|REG_BUFFER_2|Temporary buffer for multi-byte data|
-|3|REG_BUFFER_3|Temporary buffer for multi-byte data|
+|0|REG_TX_FREQ_BYTE4|Most significant byte of the 5-byte Tx frequency in Hertz|
+|1|REG_TX_FREQ_BYTE3|Next Tx frequency byte|
+|2|REG_TX_FREQ_BYTE2|Next Tx frequency byte|
+|3|REG_TX_FREQ_BYTE1|Next Tx frequency byte|
 |4|REG_FIRMWARE_MAJOR|Read only. Firmware major version|
 |5|REG_FIRMWARE_MINOR|Read only. Firmware minor version|
 |6|REG_INPUT_PINS|Read only. The input pin bits: In5, In4, In3, In2, In1, Exttr|
 |11|REG_RF_INPUTS|The receive input usage, 0, 1 or 2. See below|
 |12|REG_FAN_SPEED|The fan voltage as a number from 0 to 255|
-|13|REG_TX_FREQUENCY|The least significant byte of the Tx frequency in Hertz. To send Tx frequency write registers MSB 0, 1, 2, 3, 13 LSB|
+|13|REG_TX_FREQ_BYTE0|The least significant byte of the Tx frequency. To send Tx frequency, write bytes 1 to 4 in any order. The frequency changes when byte 0 is written.|
 |14|REG_ANTENNA_TUNER|See the antenna tuner protocol below|
 
 #### Receive Input Usage
