@@ -149,6 +149,7 @@ The Pico listens to I2C address 0x1D and you can read and write to registers at 
 Reads always return four bytes of data.
 A read from a register returns that register and the next three.
 A read from address zero has been changed. To get the data previously returned from address zero, read register four.
+When you write code, please use the register names shown. The names are also in i2c_registers.h.
 
 ### Table of I2C Registers
 
