@@ -11,6 +11,7 @@
 //    Numbers 0xF0 and higher indicate a failure.
 
 #include "../hl2ioboard.h"
+#include "../i2c_registers.h"
 
 void IcomAh4(uint8_t AH4_START, uint8_t AH4_KEY)
 {

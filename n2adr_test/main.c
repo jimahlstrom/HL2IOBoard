@@ -7,6 +7,8 @@
 // It outputs pulses of 1,2,3,4,5,6,7 milliseconds on J4 pins 1 to 7.
 // It toggles the 5 and 12 volt switched outputs at 500 and 250 Hz.
 
+// This is also used by the test fixture. Write 1 to register 111 to stop the test pattern and clear GPIO.
+
 #include "../hl2ioboard.h"
 
 // These are the major and minor version numbers for firmware.
@@ -14,13 +16,6 @@ uint8_t firmware_version_major=2;
 uint8_t firmware_version_minor=11;
 
 static void clear_gpio(void);
-
-// This is used by the test fixture. Write 1 to register 111 to stop the test pattern and clear GPIO.
-// Then write the GPIO register to register zero. Then write the value to register 112.
-static void Handler(uint8_t register_number, uint8_t register_datum)
-{  // register_number is 112
-	gpio_put(Registers[0], register_datum);
-}
 
 int main()
 {
@@ -31,7 +26,6 @@ int main()
 	pwm_set_chan_level(FAN_SLICE, FAN_CHAN, FAN_WRAP * 128 / 255);
 	configure_led_flasher();
 	ft817_band_volts(12);		// 3.0 volts
-	IrqHandler[112] = Handler;
 
 	while (1) {
 		sleep_ms(1);

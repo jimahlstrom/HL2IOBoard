@@ -5,6 +5,7 @@
 // This firmware outputs the band index on connector J4 and the FT817 band voltage on J4 pin 8.
 
 #include "../hl2ioboard.h"
+#include "../i2c_registers.h"
 
 // These are the major and minor version numbers for firmware.
 uint8_t firmware_version_major=1;

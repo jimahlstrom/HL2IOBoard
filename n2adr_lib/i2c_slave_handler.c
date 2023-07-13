@@ -5,8 +5,21 @@
 // This is an interrupt service routine for I2C traffic. It must return quickly.
 
 #include "../hl2ioboard.h"
+#include "../i2c_registers.h"
 
-uint8_t Registers[256];		// copy of registers written to the Pico except for read-only registers
+/*
+#define REG_BAND_LOW
+#define REG_BAND_HIGH
+#define REG_ADC0_MSB
+#define REG_ADC0_LSB
+#define REG_ADC1_MSB
+#define REG_ADC1_LSB
+#define REG_ADC2_MSB
+#define REG_ADC2_LSB
+*/
+#define GPIO_DIRECT_BASE	170	// map registers to GPIO pins for direct read and write
+
+uint8_t Registers[256];		// copy of registers written to the Pico
 irq_handler IrqHandler[256];	// call these handlers (if any) after a register is written
 
 uint64_t new_tx_freq;
@@ -25,9 +38,13 @@ void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event)
 			i2c_control_valid = true;
 			fast_led_flasher();
 		}
+		else if (i2c_regs_control >= GPIO_DIRECT_BASE && i2c_regs_control <= GPIO_DIRECT_BASE + 28) {	// direct write to a GPIO pin
+			Registers[i2c_regs_control] = data;
+			gpio_put(i2c_regs_control - GPIO_DIRECT_BASE, data);
+			i2c_regs_control++;
+		}
 		else {
-			if (i2c_regs_control < 4 || i2c_regs_control > 10)
-				Registers[i2c_regs_control] = data;	// registers 4 to 10 are read only
+			Registers[i2c_regs_control] = data;	// this writes read-only registers too
 			switch (i2c_regs_control) {
 			case REG_RF_INPUTS:		// How to use the external Rx input at J9
 				switch (data) {
@@ -48,12 +65,12 @@ void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event)
 			case REG_FAN_SPEED:		// fan control
 				pwm_set_chan_level(FAN_SLICE, FAN_CHAN, FAN_WRAP * data / 255);
 				break;
-			case REG_TX_FREQUENCY:		// Tx frequency, LSB
+			case REG_TX_FREQ_BYTE0:		// Tx frequency, LSB
 				new_tx_freq = (uint64_t)data	// Thanks to Neil, G4BRK
-					| (uint64_t)Registers[3] << 8
-					| (uint64_t)Registers[2] << 16
-					| (uint64_t)Registers[1] << 24
-					| (uint64_t)Registers[0] << 32;
+					| (uint64_t)Registers[REG_TX_FREQ_BYTE1] << 8
+					| (uint64_t)Registers[REG_TX_FREQ_BYTE2] << 16
+					| (uint64_t)Registers[REG_TX_FREQ_BYTE3] << 24
+					| (uint64_t)Registers[REG_TX_FREQ_BYTE4] << 32;
 				if (new_tx_freq <= 2500000)
 					gpio_put(GPIO00_HPF, 0);
 				else
@@ -62,6 +79,7 @@ void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event)
 			}
 			if (IrqHandler[i2c_regs_control])
 				(IrqHandler[i2c_regs_control])(i2c_regs_control, data);
+			i2c_regs_control++;
 		}
 		break;
 	case I2C_SLAVE_REQUEST: // master is requesting data
@@ -88,7 +106,15 @@ void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event)
 				data |= 1;
 			break;
 		default:
-			data = Registers[i2c_regs_control];
+			if (i2c_regs_control >= GPIO_DIRECT_BASE && i2c_regs_control <= GPIO_DIRECT_BASE + 28) {	// direct read from a GPIO pin
+				if (gpio_get(i2c_regs_control - GPIO_DIRECT_BASE))
+					data = 1;
+				else
+					data = 0;
+			}
+			else {
+				data = Registers[i2c_regs_control];
+			}
 			break;
 		}
 		i2c_write_byte_raw(i2c, data);
