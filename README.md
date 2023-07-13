@@ -162,7 +162,7 @@ A read from address zero has been changed. To get the data previously returned f
 |5|REG_FIRMWARE_MINOR|Read only. Firmware minor version|
 |6|REG_INPUT_PINS|Read only. The input pin bits: In5, In4, In3, In2, In1, Exttr|
 |7|REG_ANTENNA_TUNER|See the antenna tuner protocol below|
-|8|REG_FAULT|Zero for no fault. The meaning of non-zero codes is not currently defined.|
+|8|REG_FAULT|Read only. Zero for no fault. The meaning of non-zero codes is not currently defined.|
 |11|REG_RF_INPUTS|The receive input usage, 0, 1 or 2. See below|
 |12|REG_FAN_SPEED|The fan voltage as a number from 0 to 255|
 |13|REG_TX_FREQ_BYTE0|The least significant byte of the Tx frequency. To send Tx frequency, write bytes 1 to 4 in any order. The frequency changes when byte 0 is written.|
