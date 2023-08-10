@@ -23,6 +23,7 @@ uint8_t Registers[256];		// copy of registers written to the Pico
 irq_handler IrqHandler[256];	// call these handlers (if any) after a register is written
 
 uint64_t new_tx_freq;
+uint8_t new_tx_fcode;
 
 void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event)
 {  // Receive and send I2C traffic. This is an interrupt service routine so return quickly!
@@ -75,6 +76,7 @@ void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event)
 					gpio_put(GPIO00_HPF, 0);
 				else
 					gpio_put(GPIO00_HPF, 1);
+				new_tx_fcode = hertz2code(new_tx_freq);
 				break;
 			}
 			if (IrqHandler[i2c_regs_control])

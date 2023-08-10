@@ -1,5 +1,5 @@
 # IO Board for the Hermes Lite 2 by N2ADR
-**July 12, 2023**
+**August 10, 2023**
 
 **Please click the left button "-  ----" above for a navigation menu.**
 
@@ -37,12 +37,13 @@ alignment when soldering. The IO board has a 2x25 pin header. When installed, th
 ![](./pictures/HL2Mod.jpg)
 
 ## Initial Testing of the IO Board
+Please test the IO board when you get it.
 First program the Pico with the test program.
 Power off the HL2 and connect a USB cable to the IO Board.
 Push the button on the Pico and then plug the USB cable into your PC.
 The Pico will appear as a flash drive on the PC. Then copy the file n2adr_test/build/main.uf2 to the Pico. The Pico will reboot and the Pico LED will flash slowly.
 
-Now apply power to the HL2 and the IO board. Use an oscilloscope to see the test signals.
+Now apply power to the HL2. Use an oscilloscope to see the test signals.
   * Look for pulses of 1,2,3,4,5,6,7 milliseconds on J4 pins 1 to 7.
   * Look for 3.0 volts DC on J4 pin 8.
   * Look for 0.5 * supply voltage at J3 pin 1.
@@ -77,11 +78,14 @@ change bands in external amplifiers. If not needed, output 8 can still be an out
  * Pico GPIO 26, 27 and 28 are unused. They can be used for 3.3 volt logic or for ADC inputs. The ADC reference is 3.00 volts.
  * Any Pico pins can be used directly at 3.3 volt logic.
 
-These resources can be used for various purposes. The Pico has two UARTs. Output 1 and Input 1 can be used for UART Tx and Rx. Note that the signal voltages are zero and five volts. This is common for communication between microcontrollers. But the standard RS232 levels are more like plus and minus eight volts, so a connection to a PC will require an interface IC.
-
+These resources can be used for various purposes. The Pico has two UARTs. Output 1 and Input 1 can be used for UART Tx and Rx.
+Note that the signal voltages are zero and five volts. This is common for communication between microcontrollers.
+But the standard RS232 levels are more like plus and minus eight volts, so a connection to a PC will require an interface IC.
 
 A "low-side switch" is a mosfet to ground. They are commonly used to switch relays. But they can also implement a wired-or bus
-such as a one-wire bus or an I2C bus. The Icom AH-4 antenna tuner can be controlled this way.
+such as a one-wire bus or an I2C bus. The Icom AH-4 antenna tuner can be controlled this way. The switches are implemented
+in a TBD62381AFWG,EL integrated circuit. This has an absolute maximum rating of 50 volts and 500 ma per channel.
+Always place a diode across relay coils when using switches.
 
 There is a 15x18 mm bare copper area for prototyping. There is a 1x5 header J2 and a 1x2 header J12 to plug in a perf board for additional area.
 
@@ -148,7 +152,6 @@ There is an LED on the Pico. When the firmware is running, it flashes slowly. Wh
 The Pico listens to I2C address 0x1D and you can read and write to registers at this address. Writes always send one byte.
 Reads always return four bytes of data.
 A read from a register returns that register and the next three.
-A read from address zero has been changed. To get the data previously returned from address zero, read register four.
 When you write code, please use the register names shown. The names are also in i2c_registers.h.
 
 ### Table of I2C Registers
@@ -159,7 +162,7 @@ When you write code, please use the register names shown. The names are also in 
 |1|REG_TX_FREQ_BYTE3|Next Tx frequency byte|
 |2|REG_TX_FREQ_BYTE2|Next Tx frequency byte|
 |3|REG_TX_FREQ_BYTE1|Next Tx frequency byte|
-|4|REG_TX_FREQ_BYTE0|The least significant byte of the Tx frequency. To send Tx frequency, write bytes 1 to 4 in any order. The frequency changes when byte 0 is written.|
+|4|REG_TX_FREQ_BYTE0|The least significant byte of the Tx frequency.|
 |5|||
 |6|REG_INPUT_PINS|Read only. The input pin bits: In5, In4, In3, In2, In1, Exttr|
 |7|REG_ANTENNA_TUNER|See the antenna tuner protocol below|
@@ -171,16 +174,34 @@ When you write code, please use the register names shown. The names are also in 
 
 
 
+#### Transmit Frequency
+
+The transmit frequency is a five-byte integer number in hertz. You can send BYTE1 to BYTE4 in any order.
+When BYTE0 is sent, the Pico will update the global 64-bit integer new_tx_freq and the 8-bit frequency code new_tx_fcode.
+This happens in an interrupt service routine in n2adr_lib/i2c_slave_handler.c.
+Use a polling routine in your main.c to look for changes. See the example in n2adr_basic.
+
+#### Frequency Codes
+
+The files n2adr_lib/frequency_code.c and frequency_code.py contain functions to convert a frequency in hertz to a one-byte code,
+and to convert a code back to a frequency. The code is a useful one-byte approximation of the frequency
+which is sufficient to recognize the band and to select antennas.
+The codes are monotonic in frequency.
+A table of all the codes is at [frequencycodes.html](http://james.ahlstrom.name/frequencycodes.html).
+Run the Python file "python frequency_code.py" to print your own table of codes.
+
 #### Receive Input Usage
 
-This determines how the receive input J9 and the Pure Signal input J10 are used. Mode 0 means that the receive input is not used,
+This determines how the SMA receive input J9 and the Pure Signal input J10 are used. Mode 0 means that the receive input is not used,
 but the Pure Signal input is available. Mode 1 means that the receive input is used instead of the usual HL2 input,
 and the Pure Signal input is not available. Mode 2 means that the receive input is used for receive, and the Pure
 Signal input is used for transmit.
 
 #### Antenna Tuner
 
-A write to register REG_ANTENNA_TUNER is a command to the tuner. I am modeling this on the Icom AH-4 but I want it to work in general. A write of 1 starts a tune request.
+A write to register REG_ANTENNA_TUNER is a command to the tuner. I am modeling this on the Icom AH-4 but I want it to work in general.
+See the code in n2adr_lib/icom_ah4.c.
+A write of 1 starts a tune request.
 A write of 2 is a bypass command. Other tuners may have more commands. The Pico will talk to the ATU and change the register to higher numbers to indicate progress.
 The PC must read this register while tuning progresses. If the register reads as 0xEE the PC must send RF to the ATU, and stop RF when 0xEE stops.
 A final value of zero indicates a successful tune. Values of 0xF0 and higher indicate that tuning failed.
@@ -191,13 +212,13 @@ SDR software is not required to implement this command. In the future there may 
 
 The IO board connects to the I2C interface in the Hermes Lite 2.
 The [HL2 protocol](https://github.com/softerhardware/Hermes-Lite2/wiki/Protocol)
-provides a way to send and receive I2C messages from host SDR software to the IO board to control its operation. Please see the firmware protocol to see what to send.
+provides a way to send and receive I2C messages from host SDR software to the IO board to control its operation.
 Quisk uses the ACK bit with I2C commands. As described in the protocol, these commands should
 be sent at intervals so they don't disrupt normal protocol commands.
 
 Since the PC can read and write the I2C bus to communicate with the IO board, it would be possible for SDR software
 authors (Quisk, Spark, Power SDR, etc.) to write extensive logic to control IO. This is NOT the desired result. Instead
-users should write new firmware to provide the services they require. It is easy to write firmware for the Pico.
+users should write new Pico firmware to provide the services they require. It is easy to write firmware for the Pico.
 Ideally, an owner of a given power amp, for example HR50, would write a custom firmware and provide a wiring diagram for that amp.
 
 *Do NOT ask authors to modify SDR software! Write new firmware instead!*
@@ -209,8 +230,8 @@ SDR software must send the transmit frequency to provide band information to pow
 You can wait for the band to change, and then just send a frequency in the band. For example, if the
 user presses the 40 meter button, send 7.0 MHz. This is enough to determine the band, but not enough to tune a loop antenna.
 You can send the exact Tx frequency, but since the user is probably doing a lot of tuning, it is best to limit the I2C
-traffic. Quisk sends the Tx frequency at maximum rate of once every 0.5 seconds, and only if it changes. The frequency
-data in registers 0, 1, 2 and 3 are static, and are only used when register 13 is written. So you don't need to re-send them unless
+traffic. Quisk sends the Tx frequency at a maximum rate of once every 0.5 seconds, and only if it changes. The frequency
+data in registers 0, 1, 2 and 3 are static, and are only used when register 4 is written. So you don't need to re-send them unless
 they change. Quisk makes no use of this, and always sends all five registers.
 
 ### RF Receive Input
