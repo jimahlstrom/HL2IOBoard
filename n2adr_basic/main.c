@@ -11,11 +11,12 @@
 uint8_t firmware_version_major=1;
 uint8_t firmware_version_minor=2;
 
-static uint64_t current_tx_freq;
-static uint8_t current_tx_band;
+static uint8_t current_tx_fcode;
 
 int main()
 {
+	uint8_t band;
+
 	stdio_init_all();
 	configure_pins(false, true);
 	configure_led_flasher();
@@ -26,16 +27,33 @@ int main()
 		// Assume the START line is on J4 pin 6 and the KEY line is on J8 pin 2.
 		// The control register is
 		IcomAh4(GPIO22_Out6, GPIO18_In2);
-		// Poll for a changed Tx frequency. The new_tx_freq is set in the I2C handler.
-		if (current_tx_freq != new_tx_freq) {
-			current_tx_freq = new_tx_freq;
-			current_tx_band = tx_freq_to_band(current_tx_freq);	// Convert the frequency to a band index.
-			ft817_band_volts(current_tx_band);			// Put the band voltage on J4 pin 8.
-			gpio_put(GPIO16_Out1, current_tx_band & 0x01);		// Put the binary band index on J4 pins 1 to 5.
-			gpio_put(GPIO19_Out2, current_tx_band & 0x02);
-			gpio_put(GPIO20_Out3, current_tx_band & 0x04);
-			gpio_put(GPIO11_Out4, current_tx_band & 0x08);
-			gpio_put(GPIO10_Out5, current_tx_band & 0x10);
+		// Poll for a changed Tx frequency. The new_tx_fcode is set in the I2C handler.
+		if (current_tx_fcode != new_tx_fcode) {
+			current_tx_fcode = new_tx_fcode;
+			band = fcode2band(current_tx_fcode);		// Convert the frequency code to a band code.
+			ft817_band_volts(band);				// Put the band voltage on J4 pin 8.
+			switch (band) {		// Set some GPIO pins according to the band
+			case BAND_40:
+			case BAND_15:
+				gpio_put(GPIO16_Out1, 1);
+				gpio_put(GPIO19_Out2, 0);
+				gpio_put(GPIO20_Out3, 0);
+				break;
+			case BAND_20:
+				gpio_put(GPIO16_Out1, 0);
+				gpio_put(GPIO19_Out2, 1);
+				gpio_put(GPIO20_Out3, 0);
+				break;
+			case BAND_10:
+				gpio_put(GPIO16_Out1, 0);
+				gpio_put(GPIO19_Out2, 0);
+				gpio_put(GPIO20_Out3, 1);
+				break;
+			default:
+				gpio_put(GPIO16_Out1, 0);
+				gpio_put(GPIO19_Out2, 0);
+				gpio_put(GPIO20_Out3, 0);
+			}
 		}
 	}
 }

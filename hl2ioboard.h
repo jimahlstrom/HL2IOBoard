@@ -47,6 +47,30 @@
 #define GPIO27_ADC1	27
 #define GPIO28_ADC2	28
 
+#define BAND_137k	31	// Frequency 0.139 MHz
+#define BAND_500k	50	// Frequency 0.475 MHz
+#define BAND_160	71	// Frequency 1.846 MHz
+#define BAND_80		82	// Frequency 3.758 MHz
+#define BAND_60		88	// Frequency 5.539 MHz
+#define BAND_40		92	// Frequency 7.173 MHz
+#define BAND_30		97	// Frequency 9.910 MHz
+#define BAND_20		103	// Frequency 14.605 MHz
+#define BAND_17		106	// Frequency 17.731 MHz
+#define BAND_15		109	// Frequency 21.525 MHz
+#define BAND_12		111	// Frequency 24.496 MHz
+#define BAND_10		114	// Frequency 29.738 MHz
+#define BAND_6		123	// Frequency 53.208 MHz
+#define BAND_4		127	// Frequency 68.908 MHz
+#define BAND_2		139	// Frequency 149.676 MHz
+#define BAND_125cm	145	// Frequency 220.592 MHz
+#define BAND_70cm	155	// Frequency 421.041 MHz
+#define BAND_33cm	167	// Frequency 914.543 MHz
+#define BAND_23cm	172	// Frequency 1263.487 MHz
+#define BAND_13cm	182	// Frequency 2411.594 MHz
+#define BAND_9cm	187	// Frequency 3331.738 MHz
+#define BAND_5cm	196	// Frequency 5961.160 MHz
+#define BAND_3cm	204	// Frequency 9998.100 MHz
+
 typedef void (*irq_handler)(uint8_t register_number, uint8_t register_datum);
 
 void configure_pins(bool use_uart1, bool use_pwm4a);
@@ -58,7 +82,8 @@ void ft817_band_volts(uint8_t band);
 uint8_t tx_freq_to_band(uint64_t freq);
 void IcomAh4(uint8_t, uint8_t);
 uint8_t hertz2fcode(uint64_t hertz);
-uint64_t fcode2hertz(uint8_t code);
+uint64_t fcode2hertz(uint8_t fcode);
+uint8_t fcode2band(uint8_t fcode);
 
 extern uint8_t firmware_version_major;
 extern uint8_t firmware_version_minor;

@@ -7,49 +7,48 @@
 
 #include "../hl2ioboard.h"
 
-void ft817_band_volts(uint8_t band_index)	// Maximum voltage is 5000 mV
+void ft817_band_volts(uint8_t band_code)	// Maximum voltage is 5000 mV
 // Band    160     80    40      30      20      17      15      12      10       6       2    70cm
-// Index     3      4     6       7       8       9      10      11      12      13      15      17
 // Volts  0.33   0.67  1.00    1.33    1.67    2.00    2.33    2.67    3.00    3.33    3.67    4.00
 {
-	switch (band_index) {
-	case 3:
+	switch (band_code) {
+	case BAND_160:
 		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 330 / 5000);
 		break;
-	case 4:
+	case BAND_80:
 		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 670 / 5000);
 		break;
-	case 5:
+	case BAND_60:
 		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 830 / 5000);
 		break;
-	case 6:
+	case BAND_40:
 		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 1000 / 5000);
 		break;
-	case 7:
+	case BAND_30:
 		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 1330 / 5000);
 		break;
-	case 8:
+	case BAND_20:
 		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 1670 / 5000);
 		break;
-	case 9:
+	case BAND_17:
 		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 2000 / 5000);
 		break;
-	case 10:
+	case BAND_15:
 		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 2330 / 5000);
 		break;
-	case 11:
+	case BAND_12:
 		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 2670 / 5000);
 		break;
-	case 12:
+	case BAND_10:
 		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 3000 / 5000);
 		break;
-	case 13:
+	case BAND_6:
 		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 3330 / 5000);
 		break;
-	case 15:
+	case BAND_2:
 		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 3670 / 5000);
 		break;
-	case 17:
+	case BAND_70cm:
 		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 4000 / 5000);
 		break;
 	default:
