@@ -181,6 +181,17 @@ If use_pwm4a, J4 pin 8 is used for a variable 0 to 5 volt band voltage; otherwis
 These functions convert between a 5-byte frequency and a 1-byte frequency code. They are in frequencycode.c.
 The file frequencycode.py is the same code in Python, and it is not used here. It is included for convenience.
 
+  * uint8_t fcode2band(uint8_t fcode)
+
+This converts a frequency code to a band code. A band code is a single frequency code for each band.
+It is as close to the band frequency as possible. All other frequency codes are assigned to the closest band code.
+A table of band codes is in hl2ioboard.h.
+You can use the band code to select antennas, or you can use the frequency code directly.
+
+  * void ft817_band_volts(uint8_t band_code)
+
+This is used to generate a zero to five volt band voltage on J4 pin 8. It may need adjustment if you don't have an FT817.
+
   * i2c_slave_handler.c
 
 This contains the I2C interrupt handler that is called for I2C reads and writes. Since it must return quickly,
