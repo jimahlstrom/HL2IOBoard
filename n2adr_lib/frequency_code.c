@@ -7,7 +7,7 @@
 #include <stdint.h>
 #include <math.h>
 
-uint8_t hertz2code(uint64_t hertz)
+uint8_t hertz2fcode(uint64_t hertz)
 {  // convert a frequency in hertz to a frequency code
 	uint8_t code;
 
@@ -21,7 +21,7 @@ uint8_t hertz2code(uint64_t hertz)
 	return code;
 }
 
-uint64_t code2hertz(uint8_t code)
+uint64_t fcode2hertz(uint8_t code)
 {  // convert a frequency code to a frequency in hertz
 	if (code == 0)
 		return 0;

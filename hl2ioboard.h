@@ -57,11 +57,12 @@ void IrqRxTxChange(uint gpio, uint32_t events);
 void ft817_band_volts(uint8_t band);
 uint8_t tx_freq_to_band(uint64_t freq);
 void IcomAh4(uint8_t, uint8_t);
-uint8_t hertz2code(uint64_t hertz);
-uint64_t code2hertz(uint8_t code);
+uint8_t hertz2fcode(uint64_t hertz);
+uint64_t fcode2hertz(uint8_t code);
 
 extern uint8_t firmware_version_major;
 extern uint8_t firmware_version_minor;
 extern uint64_t new_tx_freq;
+extern uint8_t new_tx_fcode;
 extern uint8_t Registers[256];
 extern irq_handler IrqHandler[256];

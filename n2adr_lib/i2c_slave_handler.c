@@ -76,7 +76,7 @@ void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event)
 					gpio_put(GPIO00_HPF, 0);
 				else
 					gpio_put(GPIO00_HPF, 1);
-				new_tx_fcode = hertz2code(new_tx_freq);
+				new_tx_fcode = hertz2fcode(new_tx_freq);
 				break;
 			}
 			if (IrqHandler[i2c_regs_control])

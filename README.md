@@ -1,5 +1,5 @@
 # IO Board for the Hermes Lite 2 by N2ADR
-**August 10, 2023**
+**August 11, 2023**
 
 **Please click the left button "-  ----" above for a navigation menu.**
 
@@ -49,6 +49,11 @@ Now apply power to the HL2. Use an oscilloscope to see the test signals.
   * Look for 0.5 * supply voltage at J3 pin 1.
   * Look for a 5.0 volt 500 Hz square wave at Sw5.
   * Look for a supply voltage 250 Hz square wave at Sw12.
+
+Connector J6 has MOSFETs that short the pin to ground.
+To test, connect a DC voltage of 3.3 to 16 volts to one end of a resister of a few thousand ohms.
+Connect the other end to an oscilloscpe, and use this end to probe J6 pins 1 to 7.
+You should see the same signal as on J4 but with reverse polarity.
 
 ## Design of the IO Board Hardware
 The IO board is a four-layer PCB. Rather large parts are used, with none smaller than 0805 (2012 metric). It is designed to be easy to solder at home. It is only necessary to mount the parts you plan to use.
@@ -126,7 +131,8 @@ wire to the pads and to the DB9 pads. Of course, you can add headers if desired.
 |GPIO28_ADC2|not connected||
 
 
-## IO Board Firmware
+## IO Board Pico Firmware
+### Installing Firmware
 Firmwares for the Pico are in subdirectories of HL2IOBoard. Look in the source files to see what they do.
 
 - n2adr_test   Test program to toggle the 5 volt outputs.
@@ -149,12 +155,47 @@ The Pico will appear as a flash drive on the PC. Then copy the file build/main.u
 
 There is an LED on the Pico. When the firmware is running, it flashes slowly. When the Pico receives I2C traffic directed to its address, it flashes faster.
 
+### Firmware Design
+
 The Pico listens to I2C address 0x1D and you can read and write to registers at this address. Writes always send one byte.
 Reads always return four bytes of data.
 A read from a register returns that register and the next three.
-When you write code, please use the register names shown. The names are also in i2c_registers.h.
+All registers are 8 bit and are initialized to zero.
+In general, a read of a register returns the last value written, but there are exceptions noted in the table below.
+
+The directory n2adr_lib contains utility functions to make writing Pico software easier.
+
+  * void configure_led_flasher(void)
+
+Call this once near the start of your Pico program. It controls flashing the Pico LED.
+
+  * void configure_pins(bool use_uart1, bool use_pwm4a)
+
+This sets the configuration of the Pico GPIO pins, and you must call this once near the start of your program.
+If use_uart1, J8 pin 1 and J4 pin 1 are UART pins; otherwise they are regular logic.
+If use_pwm4a, J4 pin 8 is used for a variable 0 to 5 volt band voltage; otherwise it is regular logic.
+
+  * uint8_t hertz2fcode(uint64_t hertz)
+  * uint64_t fcode2hertz(uint8_t code)
+
+These functions convert between a 5-byte frequency and a 1-byte frequency code. They are in frequencycode.c.
+The file frequencycode.py is the same code in Python, and it is not used here. It is included for convenience.
+
+  * i2c_slave_handler.c
+
+This contains the I2C interrupt handler that is called for I2C reads and writes. Since it must return quickly,
+it mostly sets global variables that you can test in a loop in your Pico program.
+When it receives the Tx frequency, it sets new_tx_freq to the frequency and new_tx_fcode to the corresponding frequency code.
+It also uses firmware_version_major and firmware_version_minor, and you must set these in your Pico program.
+
+  * icom_ah4.c
+
+This contains code to control the Icom AH4 antenna tuner. It is untested.
+
 
 ### Table of I2C Registers
+
+When you write code, please use the register names shown. The names are also in i2c_registers.h.
 
 |Register|Name|Description|
 |--------|----|-----------|
@@ -231,8 +272,8 @@ You can wait for the band to change, and then just send a frequency in the band.
 user presses the 40 meter button, send 7.0 MHz. This is enough to determine the band, but not enough to tune a loop antenna.
 You can send the exact Tx frequency, but since the user is probably doing a lot of tuning, it is best to limit the I2C
 traffic. Quisk sends the Tx frequency at a maximum rate of once every 0.5 seconds, and only if it changes. The frequency
-data in registers 0, 1, 2 and 3 are static, and are only used when register 4 is written. So you don't need to re-send them unless
-they change. Quisk makes no use of this, and always sends all five registers.
+data in registers BYTE0 to BYTE3 are static, and are only used when register BYTE4 is written. So you don't need to re-send them unless
+they change.
 
 ### RF Receive Input
 
