@@ -6,6 +6,7 @@
 #include <hardware/i2c.h>
 #include <pico/i2c_slave.h>
 #include <hardware/pwm.h>
+#include <hardware/adc.h>
 #include <pico/binary_info.h>
 #include <pico/stdlib.h>
 #include <stdio.h>
@@ -89,5 +90,6 @@ extern uint8_t firmware_version_major;
 extern uint8_t firmware_version_minor;
 extern uint64_t new_tx_freq;
 extern uint8_t new_tx_fcode;
+extern bool rx_freq_changed;
 extern uint8_t Registers[256];
 extern irq_handler IrqHandler[256];

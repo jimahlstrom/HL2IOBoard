@@ -24,12 +24,15 @@ irq_handler IrqHandler[256];	// call these handlers (if any) after a register is
 
 uint64_t new_tx_freq;
 uint8_t new_tx_fcode;
+bool rx_freq_changed;
 
 void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event)
 {  // Receive and send I2C traffic. This is an interrupt service routine so return quickly!
 	static uint8_t i2c_regs_control;		// the control (register) byte for receive or request
 	static uint8_t i2c_control_valid = false;	// is i2c_regs_control valid?
 	uint8_t data;
+	uint16_t adc;
+	int i;
 
 	switch (event) {
 	case I2C_SLAVE_RECEIVE: // master has written data and this slave receives it
@@ -47,6 +50,15 @@ void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event)
 		else {
 			Registers[i2c_regs_control] = data;	// this writes read-only registers too
 			switch (i2c_regs_control) {
+			case REG_CONTROL:
+				if (data == 1) {	// perform a reset to power-up condition
+					for (i = 0; i < 256; i++)
+						Registers[i] = 0;
+					new_tx_freq = 0;
+					new_tx_fcode = 0;
+					rx_freq_changed = false;
+				}
+				break;
 			case REG_RF_INPUTS:		// How to use the external Rx input at J9
 				switch (data) {
 				case 0:		// Normal HL2 Rx input, J9 not used, Pure Signal at J10 available
@@ -78,6 +90,20 @@ void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event)
 					gpio_put(GPIO00_HPF, 1);
 				new_tx_fcode = hertz2fcode(new_tx_freq);
 				break;
+			case REG_FCODE_RX1:
+			case REG_FCODE_RX2:
+			case REG_FCODE_RX3:
+			case REG_FCODE_RX4:
+			case REG_FCODE_RX5:
+			case REG_FCODE_RX6:
+			case REG_FCODE_RX7:
+			case REG_FCODE_RX8:
+			case REG_FCODE_RX9:
+			case REG_FCODE_RX10:
+			case REG_FCODE_RX11:
+			case REG_FCODE_RX12:
+				rx_freq_changed = true;
+				break;
 			}
 			if (IrqHandler[i2c_regs_control])
 				(IrqHandler[i2c_regs_control])(i2c_regs_control, data);
@@ -106,6 +132,24 @@ void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event)
 				data |= 1 << 1;
 			if (gpio_get(GPIO13_EXTTR))	// 1 for receive, 0 for transmit
 				data |= 1;
+			break;
+		case REG_ADC0_MSB:			// perform an ADC conversion
+			adc_select_input(0);
+			adc = adc_read();
+			Registers[i2c_regs_control] = data = adc >> 8;
+			Registers[i2c_regs_control + 1] = adc & 0xFF;
+			break;
+		case REG_ADC1_MSB:
+			adc_select_input(1);
+			adc = adc_read();
+			Registers[i2c_regs_control] = data = adc >> 8;
+			Registers[i2c_regs_control + 1] = adc & 0xFF;
+			break;
+		case REG_ADC2_MSB:
+			adc_select_input(2);
+			adc = adc_read();
+			Registers[i2c_regs_control] = data = adc >> 8;
+			Registers[i2c_regs_control + 1] = adc & 0xFF;
 			break;
 		default:
 			if (i2c_regs_control >= GPIO_DIRECT_BASE && i2c_regs_control <= GPIO_DIRECT_BASE + 28) {	// direct read from a GPIO pin

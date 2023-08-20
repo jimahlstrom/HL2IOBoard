@@ -4,11 +4,8 @@
 
 #include "../hl2ioboard.h"
 
-// unused pins
+// unused pins:
 //gpio_init(GPIO05_xxx);
-//gpio_init(GPIO26_ADC0);
-//gpio_init(GPIO27_ADC1);
-//gpio_init(GPIO28_ADC2);
 
 // Configure all pins on the Pico. If use_uart1, use the UART on J4 pin1 and J8 pin 1.
 // If use_pwm4a, use pulse width modulation on J4 pin 8. This must be set in order to use ft817_band_volts().
@@ -20,6 +17,12 @@ void configure_pins(bool use_uart1, bool use_pwm4a)
 	gpio_init(GPIO15_I2C1_SCL);	gpio_set_function(GPIO15_I2C1_SCL, GPIO_FUNC_I2C);
 	i2c_init(i2c1, I2C1_BAUDRATE);
 	i2c_slave_init(i2c1, I2C1_ADDRESS, &i2c_slave_handler);
+
+	// ADC
+	adc_init();
+	adc_gpio_init(GPIO26_ADC0);
+	adc_gpio_init(GPIO27_ADC1);
+	adc_gpio_init(GPIO28_ADC2);
 
 	// configure input pins
 	if (use_uart1) {

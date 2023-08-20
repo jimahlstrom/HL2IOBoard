@@ -1,9 +1,10 @@
 # IO Board for the Hermes Lite 2 by N2ADR
-**August 11, 2023**
+**August 20, 2023**
 
 **Please click the left button "-  ----" above for a navigation menu.**
 
-**This documentation is preliminary, and may change based on input from the HL2 community. Further documentation is coming, stay tuned. Please provide feedback, especially if you see a problem.**
+**Register names are now fixed, but there may be additions. Further documentation is coming, stay tuned.
+Please provide feedback, especially if you see a problem.**
 
 This project is a 5 by 10 cm printed circuit board and related firmware. The board mounts above the N2ADR filter board in the same box as the Hermes Lite 2. The PC running the SDR software sends the transmit frequency to the board. The microcontroller on the board then uses the board's switches to control an amplifier, switch antenns or transverters, etc. There are a variety of IO resources available and there will be different microcontroller software for each application. The IO board is meant to be a general purpose solution to control hardware attached to the HL2.
 
@@ -183,10 +184,7 @@ The file frequencycode.py is the same code in Python, and it is not used here. I
 
   * uint8_t fcode2band(uint8_t fcode)
 
-This converts a frequency code to a band code. A band code is a single frequency code for each band.
-It is as close to the band frequency as possible. All other frequency codes are assigned to the closest band code.
-A table of band codes is in hl2ioboard.h.
-You can use the band code to select antennas, or you can use the frequency code directly.
+This converts a frequency code to a band code. A band code is a single frequency code for each band. See below.
 
   * void ft817_band_volts(uint8_t band_code)
 
@@ -215,7 +213,7 @@ When you write code, please use the register names shown. The names are also in 
 |2|REG_TX_FREQ_BYTE2|Next Tx frequency byte|
 |3|REG_TX_FREQ_BYTE1|Next Tx frequency byte|
 |4|REG_TX_FREQ_BYTE0|The least significant byte of the Tx frequency.|
-|5|||
+|5|REG_CONTROL|Write 1 to reset all the registers to zero.|
 |6|REG_INPUT_PINS|Read only. The input pin bits: In5, In4, In3, In2, In1, Exttr|
 |7|REG_ANTENNA_TUNER|See the antenna tuner protocol below|
 |8|REG_FAULT|Read only. Zero for no fault. The meaning of non-zero codes is not currently defined.|
@@ -223,6 +221,14 @@ When you write code, please use the register names shown. The names are also in 
 |10|REG_FIRMWARE_MINOR|Read only. Firmware minor version|
 |11|REG_RF_INPUTS|The receive input usage, 0, 1 or 2. See below|
 |12|REG_FAN_SPEED|The fan voltage as a number from 0 to 255|
+|13|REG_FCODE_RX1|The frequency code for the first receiver RX1|
+|14-24|REG_FCODE_RX2 to RX12|The frequency code for receiver RX2 to RX12|
+|25|REG_ADC0_MSB|The most significant byte of ADC0|
+|26|REG_ADC0_LSB|The least significant byte of ADC0|
+|27|REG_ADC1_MSB|The most significant byte of ADC1|
+|28|REG_ADC1_LSB|The least significant byte of ADC1|
+|29|REG_ADC2_MSB|The most significant byte of ADC2|
+|30|REG_ADC2_LSB|The least significant byte of ADC2|
 
 
 
@@ -232,15 +238,35 @@ The transmit frequency is a five-byte integer number in hertz. You can send BYTE
 When BYTE0 is sent, the Pico will update the global 64-bit integer new_tx_freq and the 8-bit frequency code new_tx_fcode.
 This happens in an interrupt service routine in n2adr_lib/i2c_slave_handler.c.
 Use a polling routine in your main.c to look for changes. See the example in n2adr_basic.
+If a transverter is in use, the Tx frequency includes the transverter offset.
 
 #### Frequency Codes
 
 The files n2adr_lib/frequency_code.c and frequency_code.py contain functions to convert a frequency in hertz to a one-byte code,
 and to convert a code back to a frequency. The code is a useful one-byte approximation of the frequency
 which is sufficient to recognize the band and to select antennas.
-The codes are monotonic in frequency.
+The codes are monotonic in frequency. The special code zero means the frequency was not entered and is unspecified.
 A table of all the codes is at [frequencycodes.html](http://james.ahlstrom.name/frequencycodes.html).
 Run the Python file "python frequency_code.py" to print your own table of codes.
+
+#### Receive Frequency
+
+The HL2 can have from one to twelve independent receivers. SDR software can use this feature
+to scan multiple bands for digital or CW signals. Choosing an antenna requires knowing all the Rx frequencies.
+The Rx frequencies are sent as a one-byte frequency code to registers 13 to 24 with names REG_FCODE_RX1 to RX12.
+The HL2 always has RX1, but if it is unspecified (zero) it is the same as the Tx frequency.
+If any Rx frequency is changed, the global boolean rx_freq_changed is set to true.
+If a transverter is in use, the Rx frequency includes the transverter offset.
+
+#### Band Codes
+
+A band code is a single frequency code for each band.
+The band code is chosen to be as close to the band frequency as possible. All other frequency codes are assigned to the closest band code.
+A table of band codes is in hl2ioboard.h.
+You can use the band code to select antennas, or you can use the frequency code directly.
+
+The band code is convenient because some bands have multiple frequency codes. And since all frequency codes resolve to the
+closest band code, there are no gaps in coverage. If you tune outside the band, the closest band antenna is chosen.
 
 #### Receive Input Usage
 
@@ -260,6 +286,12 @@ A final value of zero indicates a successful tune. Values of 0xF0 and higher ind
 Note that the IO board can not initiate RF and so the need for 0xEE.
 SDR software is not required to implement this command. In the future there may be an external program to do this.
 
+#### Analog to Digital Converter
+
+The Pico has one 12-bit ADC that can read from ADC0, ADC1 and ADC2 on pins GPIO26, GPIO27 and GPIO28.
+Always read the most significant byte first because that triggers the conversion.
+Since reads always return four bytes, you can return two ADC values at once.
+
 ## Modifications to SDR PC Software
 
 The IO board connects to the I2C interface in the Hermes Lite 2.
@@ -275,6 +307,11 @@ Ideally, an owner of a given power amp, for example HR50, would write a custom f
 
 *Do NOT ask authors to modify SDR software! Write new firmware instead!*
 
+### Reset
+
+The IO board registers are static and may have old data.
+When your SDR program starts, write 1 to REG_CONTROL to set all registers back to zero.
+
 ### Transmit Frequency
 
 The only required SDR modification is sending the transmit frequency.
@@ -283,8 +320,14 @@ You can wait for the band to change, and then just send a frequency in the band.
 user presses the 40 meter button, send 7.0 MHz. This is enough to determine the band, but not enough to tune a loop antenna.
 You can send the exact Tx frequency, but since the user is probably doing a lot of tuning, it is best to limit the I2C
 traffic. Quisk sends the Tx frequency at a maximum rate of once every 0.5 seconds, and only if it changes. The frequency
-data in registers BYTE0 to BYTE3 are static, and are only used when register BYTE4 is written. So you don't need to re-send them unless
+data in registers BYTE1 to BYTE4 are static, and are only used when register BYTE0 is written. So you don't need to re-send them unless
 they change.
+
+### Receive Frequencies
+
+You may need to send the twelve receive frequencies if your SDR software supports multiple receivers.
+The Pico will use this to select a receive antenna, probably by finding the highest frequency and
+setting low pass filters to that band. If all Rx frequencies are zero, the Rx band is the same as Tx.
 
 ### RF Receive Input
 

@@ -17,4 +17,5 @@ target_link_libraries(hl2ioboard
 	pico_stdlib
 	hardware_i2c
 	hardware_pwm
+	hardware_adc
 	pico_i2c_slave)
