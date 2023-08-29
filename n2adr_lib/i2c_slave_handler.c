@@ -30,7 +30,7 @@ void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event)
 {  // Receive and send I2C traffic. This is an interrupt service routine so return quickly!
 	static uint8_t i2c_regs_control;		// the control (register) byte for receive or request
 	static uint8_t i2c_control_valid = false;	// is i2c_regs_control valid?
-	uint8_t data;
+	uint8_t data, gpio;
 	uint16_t adc;
 	int i;
 
@@ -44,7 +44,11 @@ void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event)
 		}
 		else if (i2c_regs_control >= GPIO_DIRECT_BASE && i2c_regs_control <= GPIO_DIRECT_BASE + 28) {	// direct write to a GPIO pin
 			Registers[i2c_regs_control] = data;
-			gpio_put(i2c_regs_control - GPIO_DIRECT_BASE, data);
+			gpio = i2c_regs_control - GPIO_DIRECT_BASE;
+			if (gpio_get_function(gpio) == GPIO_FUNC_PWM)	// FAN_WRAP and FT817_WRAP are both equal to 1020
+				pwm_set_gpio_level(gpio, (uint16_t)data * 4);
+			else
+				gpio_put(gpio, data);
 			i2c_regs_control++;
 		}
 		else {
@@ -76,7 +80,7 @@ void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event)
 				}
 				break;
 			case REG_FAN_SPEED:		// fan control
-				pwm_set_chan_level(FAN_SLICE, FAN_CHAN, FAN_WRAP * data / 255);
+				pwm_set_chan_level(FAN_SLICE, FAN_CHAN, (uint16_t)data * 4);
 				break;
 			case REG_TX_FREQ_BYTE0:		// Tx frequency, LSB
 				new_tx_freq = (uint64_t)data	// Thanks to Neil, G4BRK

@@ -7,52 +7,101 @@
 
 #include "../hl2ioboard.h"
 
+void J4Pin8_millivolts(uint16_t millivolts)	// Maximum voltage is 5000 millivolts
+{
+	uint32_t level;
+
+	level = FT817_WRAP * millivolts;
+	level = (level + 2500) / 5000;
+	if (level > FT817_WRAP)
+		level = FT817_WRAP;
+	pwm_set_chan_level(FT817_SLICE, FT817_CHAN, (uint16_t)level);
+}
+
 void ft817_band_volts(uint8_t band_code)	// Maximum voltage is 5000 mV
-// Band    160     80    40      30      20      17      15      12      10       6       2    70cm
-// Volts  0.33   0.67  1.00    1.33    1.67    2.00    2.33    2.67    3.00    3.33    3.67    4.00
 {
 	switch (band_code) {
 	case BAND_160:
-		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 330 / 5000);
+		J4Pin8_millivolts(330);
 		break;
 	case BAND_80:
-		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 670 / 5000);
+		J4Pin8_millivolts(670);
 		break;
 	case BAND_60:
-		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 830 / 5000);
+		J4Pin8_millivolts(830);
 		break;
 	case BAND_40:
-		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 1000 / 5000);
+		J4Pin8_millivolts(1000);
 		break;
 	case BAND_30:
-		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 1330 / 5000);
+		J4Pin8_millivolts(1330);
 		break;
 	case BAND_20:
-		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 1670 / 5000);
+		J4Pin8_millivolts(1670);
 		break;
 	case BAND_17:
-		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 2000 / 5000);
+		J4Pin8_millivolts(2000);
 		break;
 	case BAND_15:
-		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 2330 / 5000);
+		J4Pin8_millivolts(2330);
 		break;
 	case BAND_12:
-		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 2670 / 5000);
+		J4Pin8_millivolts(2670);
 		break;
 	case BAND_10:
-		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 3000 / 5000);
+		J4Pin8_millivolts(3000);
 		break;
 	case BAND_6:
-		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 3330 / 5000);
+		J4Pin8_millivolts(3330);
 		break;
 	case BAND_2:
-		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 3670 / 5000);
+		J4Pin8_millivolts(3670);
 		break;
 	case BAND_70cm:
-		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, FT817_WRAP * 4000 / 5000);
+		J4Pin8_millivolts(4000);
 		break;
 	default:
-		pwm_set_chan_level(FT817_SLICE, FT817_CHAN, 0);
+		J4Pin8_millivolts(0);
 		break;
 	}
 }
+
+void xiegu_band_volts(uint8_t band_code)	// Maximum voltage is 5000 mV
+{
+	switch (band_code) {
+	case BAND_160:
+		J4Pin8_millivolts(230);
+		break;
+	case BAND_80:
+		J4Pin8_millivolts(460);
+		break;
+	case BAND_60:
+		J4Pin8_millivolts(690);
+		break;
+	case BAND_40:
+		J4Pin8_millivolts(920);
+		break;
+	case BAND_30:
+		J4Pin8_millivolts(1150);
+		break;
+	case BAND_20:
+		J4Pin8_millivolts(1380);
+		break;
+	case BAND_17:
+		J4Pin8_millivolts(1610);
+		break;
+	case BAND_15:
+		J4Pin8_millivolts(1840);
+		break;
+	case BAND_12:
+		J4Pin8_millivolts(2070);
+		break;
+	case BAND_10:
+		J4Pin8_millivolts(2300);
+		break;
+	default:
+		J4Pin8_millivolts(0);
+		break;
+	}
+}
+

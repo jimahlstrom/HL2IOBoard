@@ -12,5 +12,6 @@ target_link_libraries(main
 	pico_stdlib
 	hardware_i2c
 	hardware_pwm
+	hardware_adc
 	pico_i2c_slave
 	${PROJECT_SOURCE_DIR}/../n2adr_lib/build/libhl2ioboard.a)

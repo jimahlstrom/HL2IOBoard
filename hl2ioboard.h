@@ -15,10 +15,10 @@
 #define I2C1_BAUDRATE	(400 * 1000)
 #define FT817_SLICE	4
 #define FT817_CHAN	PWM_CHAN_A
-#define FT817_WRAP	1000
+#define FT817_WRAP	1020
 #define FAN_SLICE	2
 #define FAN_CHAN	PWM_CHAN_A
-#define FAN_WRAP	1000
+#define FAN_WRAP	1020
 
 #define GPIO00_HPF	0
 #define GPIO01_Sw12	1
@@ -79,7 +79,9 @@ void configure_led_flasher(void);
 void fast_led_flasher(void);
 void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event);
 void IrqRxTxChange(uint gpio, uint32_t events);
+void J4Pin8_millivolts(uint16_t millivolts);
 void ft817_band_volts(uint8_t band);
+void xiegu_band_volts(uint8_t band);
 uint8_t tx_freq_to_band(uint64_t freq);
 void IcomAh4(uint8_t, uint8_t);
 uint8_t hertz2fcode(uint64_t hertz);

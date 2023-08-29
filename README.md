@@ -91,7 +91,8 @@ But the standard RS232 levels are more like plus and minus eight volts, so a con
 A "low-side switch" is a mosfet to ground. They are commonly used to switch relays. But they can also implement a wired-or bus
 such as a one-wire bus or an I2C bus. The Icom AH-4 antenna tuner can be controlled this way. The switches are implemented
 in a TBD62381AFWG,EL integrated circuit. This has an absolute maximum rating of 50 volts and 500 ma per channel.
-Always place a diode across relay coils when using switches.
+
+**These low-side switches are NOT protected against inductive loads. Always place a diode across relay coils and any other inductive load.**
 
 There is a 15x18 mm bare copper area for prototyping. There is a 1x5 header J2 and a 1x2 header J12 to plug in a perf board for additional area.
 
@@ -161,8 +162,13 @@ There is an LED on the Pico. When the firmware is running, it flashes slowly. Wh
 The Pico listens to I2C address 0x1D and you can read and write to registers at this address. Writes always send one byte.
 Reads always return four bytes of data.
 A read from a register returns that register and the next three.
-All registers are 8 bit and are initialized to zero.
-In general, a read of a register returns the last value written, but there are exceptions noted in the table below.
+All registers are 8 bit and are initialized to zero at power on, and after a software reset.
+
+Since the register address is one byte, there are 256 registers. This is implemented as a 256 byte static array.
+You can write to any register, not just the ones in the table below. 
+In general, a read from a register returns the last value written, but there are exceptions noted in the table below.
+The polling loop in main.c can see all 256 registers and can implement an action for any register.
+Registers 200 and up can be claimed by SDR authors, and are used for features that are optional or unique to an SDR program.
 
 The directory n2adr_lib contains utility functions to make writing Pico software easier.
 
