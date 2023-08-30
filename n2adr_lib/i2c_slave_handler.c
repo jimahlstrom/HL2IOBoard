@@ -17,7 +17,6 @@
 #define REG_ADC2_MSB
 #define REG_ADC2_LSB
 */
-#define GPIO_DIRECT_BASE	170	// map registers to GPIO pins for direct read and write
 
 uint8_t Registers[256];		// copy of registers written to the Pico
 irq_handler IrqHandler[256];	// call these handlers (if any) after a register is written

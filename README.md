@@ -1,5 +1,5 @@
 # IO Board for the Hermes Lite 2 by N2ADR
-**August 20, 2023**
+**August 29, 2023**
 
 **Please click the left button "-  ----" above for a navigation menu.**
 
@@ -8,12 +8,15 @@ Please provide feedback, especially if you see a problem.**
 
 This project is a 5 by 10 cm printed circuit board and related firmware. The board mounts above the N2ADR filter board in the same box as the Hermes Lite 2. The PC running the SDR software sends the transmit frequency to the board. The microcontroller on the board then uses the board's switches to control an amplifier, switch antenns or transverters, etc. There are a variety of IO resources available and there will be different microcontroller software for each application. The IO board is meant to be a general purpose solution to control hardware attached to the HL2.
 
+The IO board could also be connected to the I2C bus on a single board computer to provide station control.
+
 The board has a Pico microcontroller and IO resources including
 5 volt gates, low side switches, a fan controller, and a UART. There are two SMA connectors for a separate Rx input and a Pure Signal input.
 The board plugs into the [Hermes Lite 2](http://www.hermeslite.com) main board and replaces the 2x20 jumper that connects to the N2ADR filter board.
 The board sits directly above the filter board as shown in the photos below.
 
-To use the board it will be necessary to choose which switches you need and solder wire jumpers from the switches to the DB9 connector. Then you must write or download firmware for the Pico that will operate the switches based on the transmit frequency.
+To use the board it will be necessary to choose which switches you need and solder wire jumpers from the switches to the DB9 connector.
+Then you must write or download firmware for the Pico that will operate the switches based on the transmit frequency.
 
 
 #### IO board mounted above the filter board
@@ -193,8 +196,9 @@ The file frequencycode.py is the same code in Python, and it is not used here. I
 This converts a frequency code to a band code. A band code is a single frequency code for each band. See below.
 
   * void ft817_band_volts(uint8_t band_code)
+  * void xiegu_band_volts(uint8_t band_code)
 
-This is used to generate a zero to five volt band voltage on J4 pin 8. It may need adjustment if you don't have an FT817.
+These are used to generate a zero to five volt band voltage on J4 pin 8.
 
   * i2c_slave_handler.c
 
@@ -235,7 +239,8 @@ When you write code, please use the register names shown. The names are also in 
 |28|REG_ADC1_LSB|The least significant byte of ADC1|
 |29|REG_ADC2_MSB|The most significant byte of ADC2|
 |30|REG_ADC2_LSB|The least significant byte of ADC2|
-
+|170|GPIO_DIRECT_BASE|Map registers to GPIO pins for direct read and write. See below.|
+|171-198||GPIO pins GPIO1 to GPIO28|
 
 
 #### Transmit Frequency
@@ -298,6 +303,14 @@ The Pico has one 12-bit ADC that can read from ADC0, ADC1 and ADC2 on pins GPIO2
 Always read the most significant byte first because that triggers the conversion.
 Since reads always return four bytes, you can return two ADC values at once.
 
+#### Map Registers to GPIO Pins
+
+A read or write to registers GPIO_DIRECT_BASE to GPIO_DIRECT_BASE + 28 reads or writes to the Pico GPIO pins 0 to 28.
+This supports using Steve's hermeslite.py or similar to control the Pico registers directly.
+A user could write a program to switch antennas without adding C code to the Pico.
+Since the SDR program writes Tx and Rx frequencies to the Pico, a third party program could read them back to select the antenna.
+For C programmers, it would still be easier to write the code into the Pico.
+
 ## Modifications to SDR PC Software
 
 The IO board connects to the I2C interface in the Hermes Lite 2.
@@ -344,4 +357,4 @@ The mode control 0, 1 or 2 is a user setting. There needs to be an option to set
 The fan speed control can be an internal calculation based on temperature, as is currently the case for the fan control
 in the HL2 gateware. I don't see the need for a user option for this. Quisk does not implement the fan.
 
-**Further documentation is coming, stay tuned. Please provide feedback, especially if you see a problem.**
+**Further documentation is coming. Stay tuned.**

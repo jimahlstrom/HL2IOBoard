@@ -35,3 +35,5 @@
 #define REG_ADC1_LSB		28
 #define REG_ADC2_MSB		29
 #define REG_ADC2_LSB		30
+
+#define GPIO_DIRECT_BASE	170	// map registers to GPIO pins for direct read and write
