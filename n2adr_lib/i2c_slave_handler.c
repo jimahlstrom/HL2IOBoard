@@ -7,17 +7,6 @@
 #include "../hl2ioboard.h"
 #include "../i2c_registers.h"
 
-/*
-#define REG_BAND_LOW
-#define REG_BAND_HIGH
-#define REG_ADC0_MSB
-#define REG_ADC0_LSB
-#define REG_ADC1_MSB
-#define REG_ADC1_LSB
-#define REG_ADC2_MSB
-#define REG_ADC2_LSB
-*/
-
 uint8_t Registers[256];		// copy of registers written to the Pico
 irq_handler IrqHandler[256];	// call these handlers (if any) after a register is written
 
@@ -107,6 +96,22 @@ void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event)
 			case REG_FCODE_RX12:
 				rx_freq_changed = true;
 				break;
+			case REG_OUT_PINS:
+				if (gpio_get_function(GPIO08_Out8) == GPIO_FUNC_SIO)
+					gpio_put(GPIO08_Out8, data & 0x80);
+				gpio_put(GPIO09_Out7, data & 0x40);
+				gpio_put(GPIO22_Out6, data & 0x20);
+				gpio_put(GPIO10_Out5, data & 0x10);
+				gpio_put(GPIO11_Out4, data & 0x08);
+				gpio_put(GPIO20_Out3, data & 0x04);
+				gpio_put(GPIO19_Out2, data & 0x02);
+				if (gpio_get_function(GPIO16_Out1) == GPIO_FUNC_SIO)
+					gpio_put(GPIO16_Out1, data & 0x01);
+				break;
+			case REG_STATUS:
+				gpio_put(GPIO12_Sw5, data & 0x01);
+				gpio_put(GPIO01_Sw12, data & 0x02);
+				break;
 			}
 			if (IrqHandler[i2c_regs_control])
 				(IrqHandler[i2c_regs_control])(i2c_regs_control, data);
@@ -114,6 +119,7 @@ void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event)
 		}
 		break;
 	case I2C_SLAVE_REQUEST: // master is requesting data
+		data = 0;
 		switch (i2c_regs_control) {
 		case REG_FIRMWARE_MAJOR:
 			data = firmware_version_major;
@@ -121,8 +127,13 @@ void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event)
 		case REG_FIRMWARE_MINOR:
 			data = firmware_version_minor;
 			break;
+		case REG_IN_PINS:
+			if (gpio_get_function(GPIO08_Out8) != GPIO_FUNC_SIO)
+				data |= 0x80;
+			if (gpio_get_function(GPIO16_Out1) != GPIO_FUNC_SIO)
+				data |= 0x40;
+			// fall through
 		case REG_INPUT_PINS:			// return the state of the input pins
-			data = 0;
 			if (gpio_get(GPIO06_In5))
 				data |= 1 << 5;
 			if (gpio_get(GPIO07_In4))
@@ -131,7 +142,7 @@ void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event)
 				data |= 1 << 3;
 			if (gpio_get(GPIO18_In2))
 				data |= 1 << 2;
-			if (gpio_get(GPIO17_In1))
+			if (gpio_get_function(GPIO17_In1) == GPIO_FUNC_SIO && gpio_get(GPIO17_In1))
 				data |= 1 << 1;
 			if (gpio_get(GPIO13_EXTTR))	// 1 for receive, 0 for transmit
 				data |= 1;
@@ -154,9 +165,40 @@ void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event)
 			Registers[i2c_regs_control] = data = adc >> 8;
 			Registers[i2c_regs_control + 1] = adc & 0xFF;
 			break;
+		case REG_OUT_PINS:
+			data = 0;
+			if (gpio_get_function(GPIO08_Out8) == GPIO_FUNC_SIO && gpio_get(GPIO08_Out8))
+				data |= 0x80;
+			if (gpio_get(GPIO09_Out7))
+				data |= 0x40;
+			if (gpio_get(GPIO22_Out6))
+				data |= 0x20;
+			if (gpio_get(GPIO10_Out5))
+				data |= 0x10;
+			if (gpio_get(GPIO11_Out4))
+				data |= 0x08;
+			if (gpio_get(GPIO20_Out3))
+				data |= 0x04;
+			if (gpio_get(GPIO19_Out2))
+				data |= 0x02;
+			if (gpio_get_function(GPIO16_Out1) == GPIO_FUNC_SIO && gpio_get(GPIO16_Out1))
+				data |= 0x01;
+			break;
+		case REG_STATUS:
+			data = 0;
+			if (gpio_get(GPIO12_Sw5))
+				data |= 0x01;
+			if (gpio_get(GPIO01_Sw12))
+				data |= 0x02;
+			if (gpio_get_function(GPIO17_In1) != GPIO_FUNC_SIO)
+				data |= 0x04;
+			break;
 		default:
 			if (i2c_regs_control >= GPIO_DIRECT_BASE && i2c_regs_control <= GPIO_DIRECT_BASE + 28) {	// direct read from a GPIO pin
-				if (gpio_get(i2c_regs_control - GPIO_DIRECT_BASE))
+				gpio = i2c_regs_control - GPIO_DIRECT_BASE;
+				if (gpio_get_function(gpio) != GPIO_FUNC_SIO)
+					data = Registers[i2c_regs_control];
+				else if (gpio_get(gpio))
 					data = 1;
 				else
 					data = 0;

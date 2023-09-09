@@ -6,6 +6,7 @@
 // You must set use_pwm4a in config_pins() to use this function.
 
 #include "../hl2ioboard.h"
+#include "../i2c_registers.h"
 
 void J4Pin8_millivolts(uint16_t millivolts)	// Maximum voltage is 5000 millivolts
 {
@@ -16,6 +17,7 @@ void J4Pin8_millivolts(uint16_t millivolts)	// Maximum voltage is 5000 millivolt
 	if (level > FT817_WRAP)
 		level = FT817_WRAP;
 	pwm_set_chan_level(FT817_SLICE, FT817_CHAN, (uint16_t)level);
+	Registers[GPIO_DIRECT_BASE + GPIO08_Out8] = level / 4;
 }
 
 void ft817_band_volts(uint8_t band_code)	// Maximum voltage is 5000 mV

@@ -25,7 +25,7 @@ int main()
 	configure_pins(false, true);
 	pwm_set_chan_level(FAN_SLICE, FAN_CHAN, FAN_WRAP * 128 / 255);
 	configure_led_flasher();
-	ft817_band_volts(12);		// 3.0 volts
+	ft817_band_volts(BAND_10);		// 3.0 volts
 
 	while (1) {
 		sleep_ms(1);
