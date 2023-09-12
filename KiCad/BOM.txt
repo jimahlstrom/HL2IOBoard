@@ -8,9 +8,14 @@ Value 100n, 0805_2012Metric
 Part Number AVX, 08055C104JAT2A
 Substitute X7R 50 volt
 
-Capacitor C1 C2 C3
+Capacitor C1 C3
 Value 1500p, 0805_2012Metric
 Part Number AVX, 08055A152JAT2A
+Substitute C0G 50 volt
+
+Capacitor C2
+Value 680p, 0805_2012Metric
+Part Number AVX, 08055A681JAT2A
 Substitute C0G 50 volt
 
 Capacitor C5

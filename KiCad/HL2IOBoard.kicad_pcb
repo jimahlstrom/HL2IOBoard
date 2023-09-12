@@ -7,8 +7,8 @@
   (paper "USLetter")
   (title_block
     (title "Hermes Lite2 IO Connector")
-    (date "2023-03-26")
-    (rev "E")
+    (date "2023-09-12")
+    (rev "F")
     (company "N2ADR")
   )
 
@@ -314,7 +314,7 @@
       (effects (font (size 1 1) (thickness 0.15)))
       (tstamp 6c2d26bc-6eca-436c-8025-79f817bf57d6)
     )
-    (fp_text value "1500p" (at 0 1.68) (layer "F.Fab")
+    (fp_text value "680p" (at 0 1.68) (layer "F.Fab")
       (effects (font (size 1 1) (thickness 0.15)))
       (tstamp cb24efdd-07c6-4317-9277-131625b065ac)
     )
@@ -5684,7 +5684,7 @@
   (gr_line (start 106.81 133.31) (end 118.41 133.31) (layer "Edge.Cuts") (width 0.05) (tstamp 7f9c0307-e84d-4f8a-93be-34fc4b3feb89))
   (gr_line (start 102 81.56) (end 195 81.56) (layer "Edge.Cuts") (width 0.05) (tstamp 91637a62-ec43-463a-9edc-420af478d9cb))
   (gr_line (start 195 81.56) (end 195 134.96) (layer "Edge.Cuts") (width 0.05) (tstamp c1b603f4-7037-47e9-a9dc-a0bb6f7e58b1))
-  (gr_text "N2ADR HL2 IO Board Ver 1.4" (at 104.2 105.4 90) (layer "F.SilkS") (tstamp b8eb5c02-d344-4431-a592-0e7ad9f9a78f)
+  (gr_text "N2ADR HL2 IO Board Ver 1.5" (at 104.2 105.4 90) (layer "F.SilkS") (tstamp b8eb5c02-d344-4431-a592-0e7ad9f9a78f)
     (effects (font (size 1.2 1.2) (thickness 0.15)))
   )
   (gr_text "12V" (at 160.01 90.19) (layer "F.SilkS") (tstamp db97118a-0872-4a5d-aaa5-b35f9498f22a)

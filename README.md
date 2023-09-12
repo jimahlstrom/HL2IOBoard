@@ -1,19 +1,26 @@
 # IO Board for the Hermes Lite 2 by N2ADR
-**September 9, 2023**
+**September 11, 2023**
 
 **Please click the left button "-  ----" above for a navigation menu.**
 
 **Register names are now fixed, but there may be additions. Further documentation is coming, stay tuned.
 Please provide feedback, especially if you see a problem.**
 
-This project is a 5 by 10 cm printed circuit board and related firmware. The board mounts above the N2ADR filter board in the same box as the Hermes Lite 2. The PC running the SDR software sends the transmit frequency to the board. The microcontroller on the board then uses the board's switches to control an amplifier, switch antenns or transverters, etc. There are a variety of IO resources available and there will be different microcontroller software for each application. The IO board is meant to be a general purpose solution to control hardware attached to the HL2.
+This project is a 5 by 10 cm printed circuit board and related firmware. The board mounts in the same box as the Hermes Lite 2.
+It mounts above the N2ADR filter board if one is installed.
+The filter board and the IO board are independent of each other.
+The PC running the SDR software sends the transmit frequency to the board.
+The microcontroller on the board then uses the board's switches to control an amplifier, switch antenns or transverters, etc.
+There are a variety of IO resources available and there will be different microcontroller software for each application.
+The IO board is meant to be a general purpose solution to control hardware attached to the HL2.
 
 The IO board could also be connected to the I2C bus on a single board computer to provide station control.
 
 The board has a Pico microcontroller and IO resources including
 5 volt gates, low side switches, a fan controller, and a UART. There are two SMA connectors for a separate Rx input and a Pure Signal input.
-The board plugs into the [Hermes Lite 2](http://www.hermeslite.com) main board and replaces the 2x20 jumper that connects to the N2ADR filter board.
-The board sits directly above the filter board as shown in the photos below.
+The board plugs into the [Hermes Lite 2](http://www.hermeslite.com) main board and replaces the 2x20
+jumper that connects to the N2ADR filter board.
+The board sits directly above the filter board (if any) as shown in the photos below.
 
 To use the board it will be necessary to choose which switches you need and solder wire jumpers from the switches to the DB9 connector.
 Then you must write or download firmware for the Pico that will operate the switches based on the transmit frequency.
@@ -394,4 +401,36 @@ The mode control REG_RF_INPUTS is 0, 1 or 2, and is a user setting. There needs 
 The fan speed control can be an internal calculation based on temperature, as is currently the case for the fan control
 in the HL2 gateware. I don't see the need for a user option for this. Quisk does not implement the fan.
 
-**Further documentation is coming. Stay tuned.**
+## IO Board Control Software
+
+The software directory contains the Python program n2adr_ioboard.pyw which can be used to control the IO board.
+It uses Steve's hermeslite.py software, and a copy is included. To use it, copy the two files to a convenient directory.
+You will need to install the netifaces package as follows:
+
+python -m pip install netifaces
+
+Then run the program:
+
+python n2adr_ioboard.pyw
+
+#### Control Program
+![](./pictures/BoardControl.png)
+
+#### Reduced to a Tool Bar
+![](./pictures/BoardTool.png)
+
+The program will report the IO board status. You can change the status from the program, and this
+may reduce the need to modify SDR programs. It provides a way to control the IO board from Python
+rather that write code for the Pico.
+
+Normally the program will search for the HL2. If you need to select one of several HL2's or if searching doesn't work,
+enter the IP address and press Enter.
+
+Some fields just report status. Click on the fan voltage or band voltage to change the values.
+Click on the GPIO boxes to change the values.
+The Macro buttons copy their values to the GPIO row all at once.
+
+The N2ADR control program is not "finished" (does any program ever get finished?) and I invite
+a discussion about what it should do.
+
+**End of Documentation**

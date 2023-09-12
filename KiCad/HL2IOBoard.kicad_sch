@@ -6,8 +6,8 @@
 
   (title_block
     (title "Hermes Lite2 IO Connector")
-    (date "2023-03-26")
-    (rev "E")
+    (date "2023-09-12")
+    (rev "F")
     (company "N2ADR")
   )
 
@@ -5844,7 +5844,7 @@
     (property "Reference" "C2" (id 0) (at 33.02 41.91 90)
       (effects (font (size 1.27 1.27)) (justify left))
     )
-    (property "Value" "1500p" (id 1) (at 33.02 49.53 90)
+    (property "Value" "680p" (id 1) (at 33.02 49.53 90)
       (effects (font (size 1.27 1.27)) (justify left))
     )
     (property "Footprint" "Capacitor_SMD:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder" (id 2) (at 30.48 46.6852 0)
@@ -8709,7 +8709,7 @@
       (reference "C1") (unit 1) (value "1500p") (footprint "Capacitor_SMD:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder")
     )
     (path "/00000000-0000-0000-0000-0000620251cd"
-      (reference "C2") (unit 1) (value "1500p") (footprint "Capacitor_SMD:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder")
+      (reference "C2") (unit 1) (value "680p") (footprint "Capacitor_SMD:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder")
     )
     (path "/00000000-0000-0000-0000-000062025c4b"
       (reference "C3") (unit 1) (value "1500p") (footprint "Capacitor_SMD:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder")
