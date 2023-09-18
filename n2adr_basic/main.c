@@ -49,14 +49,10 @@ int main()
 		if (rx_freq_changed) {
 			rx_freq_changed = false;
 			change_band = true;
-			fcode = 0;
-			for (i = REG_FCODE_RX1; i <= REG_FCODE_RX12; i++) {	// find the highest Rx frequency
-				if (Registers[i] > fcode)
-					fcode = Registers[i];
-			}
-			rx_band = fcode2band(fcode);		// Convert the frequency code to a band code.
-			if (rx_band == 0)
+			if (rx_freq_high == 0)
 				rx_band = tx_band;
+			else
+				rx_band = fcode2band(rx_freq_high);	// Convert the frequency code to a band code.
 		}
 		if (change_band) {
 			change_band = false;

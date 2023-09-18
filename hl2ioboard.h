@@ -93,5 +93,7 @@ extern uint8_t firmware_version_minor;
 extern uint64_t new_tx_freq;
 extern uint8_t new_tx_fcode;
 extern bool rx_freq_changed;
+extern uint8_t rx_freq_high;
+extern uint8_t rx_freq_low;
 extern uint8_t Registers[256];
 extern irq_handler IrqHandler[256];

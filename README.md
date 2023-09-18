@@ -1,5 +1,5 @@
 # IO Board for the Hermes Lite 2 by N2ADR
-**September 11, 2023**
+**September 18, 2023**
 
 **Please click the left button "-  ----" above for a navigation menu.**
 
@@ -199,6 +199,30 @@ You can use the band code to select antennas, or you can use the frequency code 
 The band code is convenient because some bands have multiple frequency codes. And since all frequency codes resolve to the
 closest band code, there are no gaps in coverage. If you tune outside the band, the closest band antenna is chosen.
 
+#### Global Variables
+
+These global variables are set in i2c_slave_handler() when data is received:
+
+  * extern uint64_t new_tx_freq;
+  * extern uint8_t new_tx_fcode;
+
+The Tx frequency and Tx frequency code are set when the Tx frequency changes.
+
+  * extern bool rx_freq_changed;
+  * extern uint8_t rx_freq_high;
+  * extern uint8_t rx_freq_low;
+
+These are set when any of the twelve Rx frequencies change. If all Rx frequencies are zero, rx_freq_high and low are both zero.
+
+  * extern uint8_t Registers[256];
+
+This is the array of all register data.
+
+  * extern uint8_t firmware_version_major;
+  * extern uint8_t firmware_version_minor;
+
+You must set the version in your main routine so it can be returned to software.
+
 #### Library Functions
 
 The directory n2adr_lib contains utility functions to make writing Pico software easier.
@@ -231,7 +255,7 @@ These are used to generate a zero to five volt band voltage on J4 pin 8.
   * i2c_slave_handler.c
 
 This contains the I2C interrupt handler that is called for I2C reads and writes. Since it must return quickly,
-it mostly sets global variables that you can test in a loop in your Pico program.
+it mostly sets registers and global variables that you can test in a loop in your Pico program.
 When it receives the Tx frequency, it sets new_tx_freq to the frequency and new_tx_fcode to the corresponding frequency code.
 It also uses firmware_version_major and firmware_version_minor, and you must set these in your Pico program.
 

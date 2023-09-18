@@ -13,12 +13,16 @@ irq_handler IrqHandler[256];	// call these handlers (if any) after a register is
 uint64_t new_tx_freq;
 uint8_t new_tx_fcode;
 bool rx_freq_changed;
+uint8_t rx_freq_high;
+uint8_t rx_freq_low;
+
+static void CheckHPF(void);
 
 void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event)
 {  // Receive and send I2C traffic. This is an interrupt service routine so return quickly!
 	static uint8_t i2c_regs_control;		// the control (register) byte for receive or request
 	static uint8_t i2c_control_valid = false;	// is i2c_regs_control valid?
-	uint8_t data, gpio;
+	uint8_t data, gpio, code1, code2, fcode;
 	uint16_t adc;
 	int i;
 
@@ -76,11 +80,8 @@ void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event)
 					| (uint64_t)Registers[REG_TX_FREQ_BYTE2] << 16
 					| (uint64_t)Registers[REG_TX_FREQ_BYTE3] << 24
 					| (uint64_t)Registers[REG_TX_FREQ_BYTE4] << 32;
-				if (new_tx_freq <= 2500000)
-					gpio_put(GPIO00_HPF, 0);
-				else
-					gpio_put(GPIO00_HPF, 1);
 				new_tx_fcode = hertz2fcode(new_tx_freq);
+				CheckHPF();
 				break;
 			case REG_FCODE_RX1:
 			case REG_FCODE_RX2:
@@ -94,7 +95,22 @@ void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event)
 			case REG_FCODE_RX10:
 			case REG_FCODE_RX11:
 			case REG_FCODE_RX12:
+				code1 = code2 = 0;
+				for (i = REG_FCODE_RX1; i <= REG_FCODE_RX12; i++) {
+					fcode = Registers[i];
+					if (fcode != 0) {
+						if (fcode > code2)	// maximum fcode
+							code2 = fcode;
+						if (code1 == 0)		// minimum fcode
+							code1 = fcode;
+						else if (fcode < code1)
+							code1 = fcode;
+					}
+				}
+				rx_freq_low = code1;
+				rx_freq_high = code2;
 				rx_freq_changed = true;
+				CheckHPF();
 				break;
 			case REG_OUT_PINS:
 				if (gpio_get_function(GPIO08_Out8) == GPIO_FUNC_SIO)
@@ -225,4 +241,18 @@ void IrqRxTxChange(uint gpio, uint32_t events)
 		else				// Tx
 			gpio_put(GPIO02_RF3, 0);
 	}
+}
+
+static void CheckHPF(void)
+{
+	uint8_t fcode;
+
+	if (rx_freq_low == 0)
+		fcode = new_tx_fcode;
+	else
+		fcode = rx_freq_low;
+	if (fcode <= 76)	// 2.55 MHz
+		gpio_put(GPIO00_HPF, 0);
+	else
+		gpio_put(GPIO00_HPF, 1);
 }
