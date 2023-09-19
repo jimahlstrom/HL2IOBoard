@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import ttk
 import hermeslite
 
-VERSION = 'Version 1.0'
+VERSION = 'Version 1.1'
 
 def no_port_1024_discover(ifaddr=None, verbose=2):
   return hermeslite.discover_by_port(ifaddr, 1025, verbose)
@@ -112,39 +112,20 @@ class CommThread(threading.Thread):
           if res and res.response_data & 0xFFFFFF == 0x1d << 16 | addr << 8 | data:
             self.comm_time = time.time()
           return
-      if self.poll_state == 0:
+      if self.poll_state == 0:		# Registers 0, 1, 2, 3
         read_i2c = self.ReadBoard(0, True)
         if read_i2c:
           r = read_i2c.response_data
           r =  bytes((r & 0xFF, r >> 8 & 0xFF, r >> 16 & 0xFF, r >> 24 & 0xFF))
           Reg[0:4] = r
           self.app.temp.set("%.1f" % read_i2c.temperature)
-      elif self.poll_state == 1:
+      elif self.poll_state == 1:	# Registers 4, 5, 6, 7
         read_i2c = self.ReadBoard(4)
         if read_i2c:
           Reg[4:4 + 4] = read_i2c
         tx = Reg[0] << 32 | Reg[1] << 24 | Reg[2] << 16 | Reg[3] << 8 | Reg[4]
         app.tx_freq.set(FreqFormatter(tx))
-      elif self.poll_state == 2:
-        read_i2c = self.ReadBoard(9)
-        if read_i2c:
-          Reg[9:9 + 4] = read_i2c
-        app.firmware_major = Reg[9]
-        app.firmware_minor = Reg[10]
-        v =  3.7 * Reg[12] / 255.0 * 3.3 - 0.7
-        if v < 0:
-          v = 0.0
-        app.fan_volts.set("%.1f" % v)
-      elif self.poll_state == 3:	# Band volts
-        read_i2c = self.ReadBoard(178)
-        if read_i2c:
-          Reg[178:178 + 4] = read_i2c
-        if self.useBandVolts:
-          v = Reg[178] / 255.0 * 5.0
-          app.band_volts.set("%.3f" % v)
-        else:
-          app.band_volts.set('')
-      elif self.poll_state == 4:
+      elif self.poll_state == 2:	# Registers 167, 168, 169, 170
         read_i2c = self.ReadBoard(167)
         if read_i2c:	# REG_STATUS, REG_IN_PINS, REG_OUT_PINS, GPIO00_HPF 
           Reg[167:167 + 4] = read_i2c
@@ -181,7 +162,78 @@ class CommThread(threading.Thread):
         app.Out2.set(bool(Reg[169] & 0x02))
         if not self.useUartTx:
           app.Out1.set(bool(Reg[169] & 0x01))
-      if self.poll_state >= 4:
+      elif self.poll_state == 3:	# Read register app.reg_index
+        index = app.reg_index.get()	# a string, maybe ""
+        try:
+          index = int(index)
+        except:
+          app.reg_value.set('')
+        else:
+          if 0 <= index <= 252:
+            read_i2c = self.ReadBoard(index)
+            if read_i2c:
+              Reg[index:index + 4] = read_i2c
+              value = Reg[index]
+              app.reg_value.set("%3d, 0x%02X" % (value, value))
+          else:
+            app.reg_value.set('')
+      elif self.poll_state == 4:	# Read GPIO pin app.gpio_index
+        index = app.gpio_index.get()	# a string, maybe ""
+        try:
+          index = int(index)
+        except:
+          app.gpio_value.set('')
+        else:
+          if 0 <= index <= 28:
+            index += 170
+            read_i2c = self.ReadBoard(index)
+            if read_i2c:
+              Reg[index:index + 4] = read_i2c
+              value = Reg[index]
+              app.gpio_value.set("%3d, 0x%02X" % (value, value))
+          else:
+            app.gpio_value.set('')
+      elif self.poll_state == 5:	# named variable
+        name = app.var_name1.get()
+        if name == "Band Volts":
+          read_i2c = self.ReadBoard(178)
+          if read_i2c:
+            Reg[178:178 + 4] = read_i2c
+          if self.useBandVolts:
+            v = Reg[178] / 255.0 * 5.0
+            app.var_value1.set("%.3f volts" % v)
+          else:
+            app.var_value1.set('Not available')
+        elif name == "Fan Volts":
+          read_i2c = self.ReadBoard(12)
+          if read_i2c:
+            Reg[12:12 + 4] = read_i2c
+          v =  3.7 * Reg[12] / 255.0 * 3.3 - 0.7
+          if v < 0:
+            v = 0.0
+          app.var_value1.set("%.1f volts" % v)
+        elif name == "ADC0":
+          read_i2c = self.ReadBoard(25)
+          if read_i2c:
+            Reg[25:25 + 4] = read_i2c
+          v = Reg[25] << 8 | Reg[26]
+          v = v / 4095.0 * 3.0
+          app.var_value1.set("%.3f volts" % v)
+        elif name == "ADC1":
+          read_i2c = self.ReadBoard(27)
+          if read_i2c:
+            Reg[27:27 + 4] = read_i2c
+          v = Reg[27] << 8 | Reg[28]
+          v = v / 4095.0 * 3.0
+          app.var_value1.set("%.3f volts" % v)
+        elif name == "ADC2":
+          read_i2c = self.ReadBoard(29)
+          if read_i2c:
+            Reg[29:29 + 4] = read_i2c
+          v = Reg[29] << 8 | Reg[30]
+          v = v / 4095.0 * 3.0
+          app.var_value1.set("%.3f volts" % v)
+      if self.poll_state >= 5:
         self.poll_state = 0
       else:
         self.poll_state += 1
@@ -299,24 +351,41 @@ class Application(tk.Tk):
     value = getattr(self, name).get()
     index = self.name2index[name]
     self.comm_thread.WriteBoard(170 + index, value)
-  def ChangeFanVolts(self, event):
-    dlg = ChangeDialog("Fan Volts")
-    if dlg.ok:
-      text = dlg.value
+  def ChangeRegister(self, event, title=None, index=None):
+    if index is None:
+      index = app.reg_index.get()
       try:
-        volts = float(text)
-        if volts < 0:
-          volts = 0
-        data = int(255.0 * (volts + 0.7) / 3.3 / 3.7 + 0.5)
-        if data > 255:
-          data = 255
+        index = int(index)
       except:
         return
-      self.comm_thread.WriteBoard(12, data)
-  def ChangeBandVolts(self, event):
-    dlg = ChangeDialog("Band Volts")
+    if title is None:
+      title = "Change Register %d" % index
+    dlg = ChangeDialog(title)
     if dlg.ok:
       text = dlg.value
+    else:
+      return
+    try:
+      value = int(text, base=0)
+    except:
+      return
+    self.comm_thread.WriteBoard(index, value)
+  def ChangePinGpio(self, event):
+    index = app.gpio_index.get()
+    try:
+      index = int(index)
+    except:
+      return
+    title = "Change GPIO %d" % index
+    self.ChangeRegister(event, title=title, index=index+170)
+  def ChangeValue1(self, event):
+    name = self.var_name1.get()
+    dlg = ChangeDialog(name)
+    if dlg.ok:
+      text = dlg.value
+    else:
+      return
+    if name == "Band Volts":
       try:
         volts = float(text)
         if volts < 0:
@@ -327,6 +396,17 @@ class Application(tk.Tk):
       except:
         return
       self.comm_thread.WriteBoard(178, data)
+    elif name == "Fan Volts":
+      try:
+        volts = float(text)
+        if volts < 0:
+          volts = 0
+        data = int(255.0 * (volts + 0.7) / 3.3 / 3.7 + 0.5)
+        if data > 255:
+          data = 255
+      except:
+        return
+      self.comm_thread.WriteBoard(12, data)
   def KnownIP(self, event):
     t = self.hl2_ip.get()
     if t.count('.') == 3:
@@ -337,36 +417,63 @@ class Application(tk.Tk):
     frame = self.topframe
     s = ttk.Style()
     s.configure('Box.TLabel', background='#EEE') #, borderwidth=0, relief=tk.SUNKEN)
-    # First two columns
+    #s.configure('Readonly.TCombobox', fieldbackground='red') #, borderwidth=0, relief=tk.SUNKEN)
+    s.map('Readonly.TCombobox', fieldbackground=[('readonly','white')])
+    s.map('Readonly.TCombobox', selectbackground=[('readonly', 'white')])
+    s.map('Readonly.TCombobox', selectforeground=[('readonly', 'black')])
+    s.map('Readonly.TCombobox', background=[('readonly', 'white')])
+    # First three columns
     col = 0
     row = 0
     c = ttk.Label(frame, text="Known IP or blank")
-    c.grid(column=col, row=row, sticky=tk.W, padx=5)
+    c.grid(column=col, row=row, columnspan=2, sticky=tk.W, padx=(10, 5))
     self.hl2_ip = tk.StringVar()
     en = ttk.Entry(frame, exportselection=0, width=15, textvariable=self.hl2_ip)
-    en.grid(column=col + 1, row=row, sticky=tk.W, padx=5, pady=2)
+    en.grid(column=col + 2, row=row, sticky=(tk.W, tk.E), padx=5, pady=2)
     en.bind('<Return>', self.KnownIP)
     row += 1
-    c = ttk.Label(frame, text="Fan voltage 0.0-11.5")
-    c.grid(column=col, row=row, sticky=tk.W, padx=5)
-    self.fan_volts = tk.StringVar()
-    fv = ttk.Label(frame, textvariable=self.fan_volts, style='Box.TLabel', background='#FFF')
-    fv.grid(column=col + 1, row=row, sticky=(tk.W, tk.E), padx=5, pady=2)
-    fv.bind('<ButtonRelease>', self.ChangeFanVolts)
-    row += 1
-    bv = ttk.Label(frame, text="Band voltage 0.0-5.0")
-    bv.grid(column=col, row=row, sticky=tk.W, padx=5)
-    self.band_volts = tk.StringVar()
-    bv = ttk.Label(frame, textvariable=self.band_volts, style='Box.TLabel', background='#FFF')
-    bv.grid(column=col + 1, row=row, sticky=(tk.W, tk.E), padx=5, pady=2)
-    bv.bind('<ButtonRelease>', self.ChangeBandVolts)
-    row += 1
+    bv = ttk.Label(frame, text="Register")
+    bv.grid(column=col, row=row, sticky=tk.W, padx=(10, 5))
+    self.reg_index = tk.StringVar()
+    self.reg_index.set("4")
+    en = ttk.Entry(frame, exportselection=0, width=5, textvariable=self.reg_index)
+    en.grid(column=col + 1, row=row, sticky=tk.E, padx=5, pady=2)
+    self.reg_value = tk.StringVar()
+    bv = ttk.Label(frame, textvariable=self.reg_value, style='Box.TLabel', background='#FFF')
+    bv.grid(column=col + 2, row=row, sticky=(tk.W, tk.E), padx=(10, 5), pady=2)
+    bv.bind('<ButtonRelease>', self.ChangeRegister)
     c = ttk.Label(frame, text=" ")	# Add a spacer
     c.grid(column=col, row=row, sticky=tk.W, padx=5)
     row += 1
+    bv = ttk.Label(frame, text="GPIO pin")
+    bv.grid(column=col, row=row, sticky=tk.W, padx=(10, 5))
+    self.gpio_index = tk.StringVar()
+    self.gpio_index.set("8")
+    en = ttk.Entry(frame, exportselection=0, width=5, textvariable=self.gpio_index)
+    en.grid(column=col + 1, row=row, sticky=tk.E, padx=5, pady=2)
+    self.gpio_value = tk.StringVar()
+    bv = ttk.Label(frame, textvariable=self.gpio_value, style='Box.TLabel', background='#FFF')
+    bv.grid(column=col + 2, row=row, sticky=(tk.W, tk.E), padx=5, pady=2)
+    bv.bind('<ButtonRelease>', self.ChangePinGpio)
+    c = ttk.Label(frame, text=" ")	# Add a spacer
+    c.grid(column=col, row=row, sticky=tk.W, padx=5)
+    row += 1
+    # Combo control
+    self.var_name1 = tk.StringVar()
+    c = ttk.Combobox(frame, exportselection=0, width=8, state="readonly", style="Readonly.TCombobox", textvariable=self.var_name1,
+        values=("Band Volts", "Fan Volts", "ADC0", "ADC1", "ADC2"))
+    c.grid(column=col, row=row, columnspan=2, sticky=(tk.W, tk.E), padx=(10, 5))
+    c.current(0)
+    self.var_value1 = tk.StringVar()
+    bv = ttk.Label(frame, textvariable=self.var_value1, style='Box.TLabel', background='#FFF')
+    bv.grid(column=col + 2, row=row, sticky=(tk.W, tk.E), padx=5, pady=2)
+    bv.bind('<ButtonRelease>', self.ChangeValue1)
+    row += 1
+    c = ttk.Label(frame, text=" ")
+    c.grid(column=col, row=row, padx=5)
     # Second two columns
     row = 0
-    col = 2
+    col = 3
     c = ttk.Label(frame, text="Connected IP")
     c.grid(column=col, row=row, sticky=tk.W, padx=5)
     self.IP = tk.StringVar()
