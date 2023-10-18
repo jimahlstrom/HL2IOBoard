@@ -45,6 +45,12 @@ header at the back edge of the board. Following that, two holes are skipped, and
 VSUP is the 12 volt HL2 input supply taken after the fuse.
 It is convenient to place the 2x20 pin header across the existing pins and the three added pins to provide
 alignment when soldering. The IO board has a 2x25 pin header. When installed, this connects the HL2 to the filter board as usual.
+
+For the three-pin header you need the same size as the 1x20 header on the main HL2 board. The pin pitch is 2.54 mm.
+On my HL2, the total height is 11.43 mm with 3.05 mm below the PCB. The pins are square and 0.64 mm on a side.
+But my HL2 is an old one, so check what size your pins are. The exact height is not too critical.
+
+#### Added three-pin header
 ![](./pictures/HL2Mod.jpg)
 
 ## Initial Testing of the IO Board
