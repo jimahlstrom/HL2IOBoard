@@ -156,6 +156,7 @@ Firmwares for the Pico are in subdirectories of HL2IOBoard. Look in the source f
 - n2adr_test   Test program to toggle the 5 volt outputs.
 - n2adr_basic  Very basic example.
 - n2adr_lib    Library of useful subroutines used in the above.
+- n1adj_hr50   Control the [Hardrock-50](https://hobbypcb.com/products/hardrock-50-hf-power-amp-kit) amplifier.
 
 To create your own firmware, install the Pico SDK and create a directory for your code.
 You may want to clone my github project to get you started.
