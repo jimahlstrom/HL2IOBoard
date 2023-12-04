@@ -393,8 +393,6 @@ int main()
 	configure_led_flasher();
 
    	uart_init(UART_ID, BAUD_RATE);
-	// configure_pins() doesn't call gpio_disable_pulls() when setting up the UART, but serial input doesn't work without it
-	gpio_disable_pulls(GPIO17_In1);
   	uart_set_hw_flow(UART_ID, false, false);
   	uart_set_format(UART_ID, DATA_BITS, STOP_BITS, PARITY);
   	uart_set_fifo_enabled(UART_ID, true);
