@@ -10,6 +10,7 @@
 #include "../i2c_registers.h"
 #include "hardware/uart.h"
 #include <string.h>
+#include <math.h>
 
 #define UART_ID uart0
 #define BAUD_RATE 19200
@@ -67,13 +68,6 @@ uint8_t fcode2hr50_band(uint8_t frequency_code) {
 	return hr50_band;
 }
 
-void uart_puts_log(uart_inst_t *uart, const char *s) {
-	uart_puts(uart, s);
-#if DEBUG
-	printf("sent: %s\n", s);
-#endif
-}
-
 uint8_t response[256] = "";
 bool response_ok = false;
 bool response_ready = false;
@@ -82,6 +76,14 @@ void clear_response() {
 	response[0] = '\0';
 	response_ready = false;
 	response_ok = false;
+}
+
+void uart_puts_log(uart_inst_t *uart, const char *s) {
+	clear_response();
+	uart_puts(uart, s);
+#if DEBUG
+	printf("sent: %s\n", s);
+#endif
 }
 
 // RX interrupt handler
@@ -156,7 +158,34 @@ uint8_t handle_serial_response(char *expected_response, char *next_command[2]) {
 	return status;
 }
 
+// Calculate SWR as a rolling average of the last k samples
+// Return zero if we determine that transmit voltage readings aren't available
+double read_swr() {
+	const double conversion_factor = 3.3 / (1 << 12);
+	const double k = 10.0;
+	double v_rev, v_fwd, ratio, swr;
+	static double avg_swr = 5.0;
+
+	adc_select_input(0);
+	v_rev = adc_read() * conversion_factor;
+	adc_select_input(1);
+	v_fwd = adc_read() * conversion_factor;
+	if (v_rev > v_fwd) {
+		// This should never happen, and probably means that the transmit voltage readings
+		// aren't available because they haven't been wired up.
+		avg_swr = 0.0;
+	} else {
+		if (v_fwd < 0.0001) v_fwd = 0.0001;
+		ratio = v_rev / v_fwd;
+		if (ratio > 0.9999) ratio = 0.9999;
+		swr = (1 + ratio)/(1 - ratio);
+		avg_swr = ((avg_swr * (k - 1.0)) + swr) / k;
+	}
+	return avg_swr;
+}
+
 uint8_t console_in[256] = "";
+
 void hr50_tune() {
 	static uint8_t state_antenna_tuner = 0;
 #if DEBUG
@@ -165,6 +194,9 @@ void hr50_tune() {
 	static absolute_time_t tuner_time0, tuner_time1;
 	uint8_t reg;
 
+	static double swr, last_swr = 100.0;
+	static absolute_time_t last_swr_change_time, last_log_time;
+
 #if DEBUG
 	if (response_ready == true) {
 		if (response_ok) {
@@ -172,7 +204,6 @@ void hr50_tune() {
 		} else {
 			printf("bad: %s\n", response);
 		}
-		// clear_response();
 	}
 #endif
 
@@ -280,7 +311,7 @@ void hr50_tune() {
 			char *cmd[2] = {"",""};
 			uint8_t status = handle_serial_response("HRTMS;", cmd);
 #if DEBUG
-			printf("status; %d\n", status);
+			printf("status: %d\n", status);
 #endif
 			if (status != RESPONSE_NOT_READY) {
 				// Transmit didn't start, so abort
@@ -289,17 +320,38 @@ void hr50_tune() {
 				Registers[REG_ANTENNA_TUNER] = 0xF4;
 			} else {
 				state_antenna_tuner = 8;
-				tuner_time1 = get_absolute_time();
+				tuner_time1 = last_swr_change_time = last_log_time = get_absolute_time();
+				last_swr = 100.0;
 			}
 		}
 		break;
-	case 8: 	// Wait 5 seconds for tuning to finish
-		// Can't communicate with the amp while it's transmitting,
-		// so all we can do is wait for a fixed amount of time.
-		// In my testing, tuning seems to either succeed or fail in less that 5 seconds.
-		if (absolute_time_diff_us(tuner_time1, get_absolute_time()) / 1000 >= 5000) {
+	case 8: 	// Wait for tuning to finish
+		// We can't communicate with the amp while it's transmitting.
+		// Instead, we can monitor SWR from the HL2 if it's available, or wait for a fixed amount of time.
+		// In my testing, tuning seems to either succeed or fail in less than 5 seconds.
+		swr = read_swr();
+		if (swr < 1.0 || fabs((swr - last_swr)/last_swr) > 0.1) {
+			// Either swr changed by > 10%, or we got a bad reading.
+			// SWR less less than one indicates we can't trust it, so we update last_swr_change_time
+			// which means it will never appear to stabilize and we'll revert to timed transmit.
+			last_swr_change_time = get_absolute_time();
+			last_swr = swr;
+		}
+#if DEBUG
+		if ((absolute_time_diff_us(last_log_time, get_absolute_time()) / 1000 >= 100)) {
+			printf("%5d swr: %7.2f last_swr: %7.2f last_swr_change_time: %5d delta: %5d\n",
+				(uint32_t)(absolute_time_diff_us(tuner_time1, get_absolute_time()) / 1000),
+				swr,
+				last_swr,
+				(uint32_t)(absolute_time_diff_us(tuner_time1, last_swr_change_time) / 1000),
+				(uint32_t)(absolute_time_diff_us(last_swr_change_time, get_absolute_time()) / 1000));
+			last_log_time = get_absolute_time();
+		}
+#endif
+		if (absolute_time_diff_us(last_swr_change_time, get_absolute_time()) / 1000 >= 1000 ||
+			absolute_time_diff_us(tuner_time1, get_absolute_time()) / 1000 >= 5000) {
+			// Turn off transmitter if SWR has stabilized for one second or five seconds has elapsed
 			state_antenna_tuner = 9;
-			// Turn off transmitter
 			Registers[REG_ANTENNA_TUNER] = state_antenna_tuner;
 			tuner_time1 = get_absolute_time();
 		}

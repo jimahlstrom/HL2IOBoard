@@ -10,6 +10,13 @@ This firmware uses the [Hardrock-50](https://hobbypcb.com/products/hardrock-50-h
 * Solder a jumper from J8 pin 1 to J7 pin 3.
 * Solder a jumper from J12 pin 2 to J7 pin 5.
 
+The Hardrock-50 shuts off its serial port while it's in transmit mode, which means there's no way to find out when it's done tuning. initially I used a timed transmit approach, but that had to allow for the longest possible tune cycle, so the transmitter stayed on longer than necessay. On the HR-50 mailing list, Patrick AC1KM suggested that it might be possible to use the transmitter's SWR reporting to monitor tuning state and Jim N2ADR suggested wiring that makes that possible. with the following connections, the firmware can monitor forward and reverse power and detect when tuning is complete. The only downside is that there aren't dedicated pads on the board, so you have to solder directly to pins on the 50-pin header and the Pico daughterboard. If you don't feel comfortable doing that, you can omit those connections. Tuning will still work, but the transmitter will stay on for a fixed period rather than shutting off when SWR has stopped changing.
+
+### SWR monitoring connections
+
+* Solder a jumper from J1 pin 37 to U1 pin 31.
+* Solder a jumper from J1 pin 39 to U1 pin 32.
+
 ![IO board wiring](./IOBoard.jpg)
 
 ### Install this firmware
