@@ -25,15 +25,14 @@ void configure_pins(bool use_uart1, bool use_pwm4a)
 	adc_gpio_init(GPIO28_ADC2);
 
 	// configure input pins
+	gpio_init(GPIO17_In1);
 	if (use_uart1) {
-		gpio_init(GPIO17_In1);
 		gpio_set_function(GPIO17_In1,  GPIO_FUNC_UART);	// UART0 RX
 	}
 	else {
-		gpio_init(GPIO17_In1);
 		gpio_set_dir(GPIO17_In1, GPIO_IN);
-		gpio_disable_pulls(GPIO17_In1);
 	}
+	gpio_disable_pulls(GPIO17_In1);
 	gpio_init(GPIO18_In2);		gpio_set_dir(GPIO18_In2, GPIO_IN);	gpio_disable_pulls(GPIO18_In2);
 	gpio_init(GPIO21_In3);		gpio_set_dir(GPIO21_In3, GPIO_IN);	gpio_disable_pulls(GPIO21_In3);
 	gpio_init(GPIO07_In4);		gpio_set_dir(GPIO07_In4, GPIO_IN);	gpio_disable_pulls(GPIO07_In4);
