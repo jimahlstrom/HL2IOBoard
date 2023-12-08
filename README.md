@@ -72,6 +72,8 @@ To test, connect a DC voltage of 3.3 to 16 volts to one end of a resister of a f
 Connect the other end to an oscilloscpe, and use this end to probe J6 pins 1 to 7.
 You should see the same signal as on J4 but with reverse polarity.
 
+The test program can generate a test pattern for the antenna tuner protocol. Write a "1" to REG_ANTENNA_TUNER. SDR authors can use this to help write code for this feature. 
+
 ## Design of the IO Board Hardware
 The IO board is a four-layer PCB. Rather large parts are used, with none smaller than 0805 (2012 metric). It is designed to be easy to solder at home. It is only necessary to mount the parts you plan to use.
 
