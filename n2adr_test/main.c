@@ -3,13 +3,15 @@
 //   It is licensed under the MIT license. See MIT.txt.
 
 // This is used to test IO board features.
-// It outputs 3.0 volts on J4 pin 8, and sets the fan to 0.5 * VSUP.
+// It outputs 3.0 volts on J4 pin 8, and sets the fan to 5.7 volts.
 // It outputs pulses of 1,2,3,4,5,6,7 milliseconds on J4 pins 1 to 7.
 // It toggles the 5 and 12 volt switched outputs at 500 and 250 Hz.
+// It generates a test pattern for the antenna tuner protocol.
 
 // This is also used by the test fixture. Write 1 to register 111 to stop the test pattern and clear GPIO.
 
 #include "../hl2ioboard.h"
+#include "../i2c_registers.h"
 
 // These are the major and minor version numbers for firmware.
 uint8_t firmware_version_major=2;
@@ -20,6 +22,7 @@ static void clear_gpio(void);
 int main()
 {
 	uint8_t tester = 0;
+	uint32_t antenna_tuner = 0;
 
 	stdio_init_all();
 	configure_pins(false, true);
@@ -70,6 +73,26 @@ int main()
 			gpio_put(GPIO09_Out7, 0);
 			break;
 		}
+		if (Registers[REG_ANTENNA_TUNER] == 1) {
+			Registers[REG_ANTENNA_TUNER] = 3;
+			antenna_tuner = 1;
+		}
+		if (antenna_tuner == 0)
+			continue;
+		antenna_tuner++;
+		if (antenna_tuner < 3000)
+			Registers[REG_ANTENNA_TUNER] = 3;
+		else if (antenna_tuner < 6000)
+			Registers[REG_ANTENNA_TUNER] = 4;
+		else if (antenna_tuner < 9000)
+			Registers[REG_ANTENNA_TUNER] = 0xEE;
+		else if (antenna_tuner < 12000)
+			Registers[REG_ANTENNA_TUNER] = 16;
+		else {
+			Registers[REG_ANTENNA_TUNER] = 0;
+			antenna_tuner = 0;
+		}
+			
 	}
 }
 
