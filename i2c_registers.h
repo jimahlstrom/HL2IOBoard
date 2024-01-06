@@ -35,8 +35,8 @@
 #define REG_ADC1_LSB		28
 #define REG_ADC2_MSB		29
 #define REG_ADC2_LSB		30
-#define REG_ANTENNA         31
-#define REG_OP_MODE         32
+#define REG_ANTENNA		31
+#define REG_OP_MODE		32
 
 #define REG_STATUS		167
 #define REG_IN_PINS		168
