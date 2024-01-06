@@ -1,5 +1,5 @@
 # IO Board for the Hermes Lite 2 by N2ADR
-**September 18, 2023**
+**January 6, 2024**
 
 **Please click the left button "-  ----" above for a navigation menu.**
 
@@ -353,6 +353,31 @@ Normally, the antenna choice is calculated by the Pico based on the Tx and Rx fr
 But there may be multiple antennas available for a single band.
 The high four bits of REG_ANTENNA is the Tx antenna, and the low four bits is the Rx antenna for the current band.
 A zero means the first (default) antenna.
+
+|Register|Name|Description|
+|--------|----|-----------|
+|32|REG_OP_MODE|Set the operating Mode|
+
+Operating modes values (Curently Based on Thetis internal definitions):
+
+|Mode|Value|
+|---|---|
+|LSB|0|
+|USB|1|
+|DSB|2|
+|CWL|3|
+|CWU|4|
+|FM|5|
+|AM|6|
+|DIGU|7|
+|SPEC|8|
+|DIGL|9|
+|SAM|10|
+|DRM|11|
+|AM_LSB|12|
+|AM_USB|13|
+
+Additional modes can be appended to the bottom of the list.
 
 |Register|Name|Description|
 |--------|----|-----------|
