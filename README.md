@@ -343,7 +343,9 @@ If a transverter is in use, the Rx frequency includes the transverter offset.
 
 The Pico has one 12-bit ADC that can read from ADC0, ADC1 and ADC2 on pins GPIO26, GPIO27 and GPIO28.
 Always read the most significant byte first because that triggers the conversion.
-Since reads always return four bytes, you can return two ADC values at once.
+A read from ADC0 returns the value of ADC0 and ADC1 in the four byte response.
+A read from ADC1 returns the value of ADC1 and ADC2.
+Reading the two values in quick succession can be used to calculate SWR from forward and reverse power.
 
 |Register|Name|Description|
 |--------|----|-----------|
@@ -358,26 +360,16 @@ A zero means the first (default) antenna.
 |--------|----|-----------|
 |32|REG_OP_MODE|Set the operating Mode|
 
-Operating modes values (Curently Based on Thetis internal definitions):
 
-|Mode|Value|
-|---|---|
-|LSB|0|
-|USB|1|
-|DSB|2|
-|CWL|3|
-|CWU|4|
-|FM|5|
-|AM|6|
-|DIGU|7|
-|SPEC|8|
-|DIGL|9|
-|SAM|10|
-|DRM|11|
-|AM_LSB|12|
-|AM_USB|13|
+||Mode|Value|Mode|Value|Mode|Value|Mode|Value|
+|---|---|---|---|---|---|---|---|---|
+||LSB|0|USB|1|DSB|2|CWL|3|
+||CWU|4|FM|5|AM|6|DIGU|7|
+||SPEC|8|DIGL|9|SAM|10|DRM|11|
+||AM_LSB|12|AM_USB|13|
 
-Additional modes can be appended to the bottom of the list.
+Operating mode values are based on Thetis internal definitions.
+Note that value zero does not mean "unspecified".
 
 |Register|Name|Description|
 |--------|----|-----------|
