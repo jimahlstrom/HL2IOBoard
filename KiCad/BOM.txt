@@ -33,9 +33,14 @@ Value LD09P13A4GX00LF, DSUB-9 Male Horizontal
 Manufacturer Amphenol
 
 Connector J1
-Value Conn_02x25_Odd_Even, Socket 2x25, 2.54 mm, 13.6 mm insulation height
-Part Number Oupiin, 2047-2X25G00S3U
-Substitute ESW-125-48-G-D. Insulation height determines back panel hole height.
+Value Conn_02x25_Odd_Even, Socket 2x25, 2.54 mm
+55mm enclosure:	13.59 mm insulation height
+		Oupiin 2047-2X25G00S3U
+		Samtec ESW-125-48-G-D
+40mm enclosure:	11.05 mm insulation height
+		Oupiin 2047-2X25G00S1U
+		Samtec ESW-125-12-G-D
+Insulation height determines back panel hole height.
 
 Diode D6
 Value B0530WS-7-F, SOD-323
