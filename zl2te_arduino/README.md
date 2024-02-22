@@ -1,4 +1,4 @@
-# IO Board Hardrock-50 Firmware by N1ADJ
+# Arduino code conversion from Pico SDK
 
 This firmware uses the [Hardrock-50](https://hobbypcb.com/products/hardrock-50-hf-power-amp-kit) amplifier serial interface to do band changes and to trigger the built-in antenna tuner. The HR-50 serial protocol is described in Chapter 6 of the [Hardrock-50 Manual](https://sites.google.com/site/hardrock50beta/hardrock-50-builders-information-site/instruction-manual). The IO Board antenna tuning protocol is described in the [main README](../README.md#table-of-i2c-registers).
 
@@ -17,7 +17,7 @@ The Hardrock-50 shuts off its serial port while it's in transmit mode, which mea
 * Solder a jumper from J1 pin 37 to U1 pin 31.
 * Solder a jumper from J1 pin 39 to U1 pin 32.
 
-![IO board wiring](./IOBoard.jpg)
+![IO board wiring](./pictures/IOBoard.jpg)
 
 ### Install this firmware
 * Power off the HL2 and connect a USB cable to the IO Board.
