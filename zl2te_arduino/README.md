@@ -1,6 +1,10 @@
 # Arduino code conversion from Pico SDK
 
-This firmware uses the [Hardrock-50](https://hobbypcb.com/products/hardrock-50-hf-power-amp-kit) amplifier serial interface to do band changes and to trigger the built-in antenna tuner. The HR-50 serial protocol is described in Chapter 6 of the [Hardrock-50 Manual](https://sites.google.com/site/hardrock50beta/hardrock-50-builders-information-site/instruction-manual). The IO Board antenna tuning protocol is described in the [main README](../README.md#table-of-i2c-registers).
+This firmware is the modification of the original Pico SDK so that it will compile and install from the Arduino IDE. It is assumed that the user will hqave the Pico extension to the Arduino environment installed and is familiar with how to compile and upload. If this is not the case, there is plenty of information available on the internet and I recommend that you set it up and become familiar with it before proceeding.
+
+## The General Concept
+
+Apart from the i2c_slave_handler.c there is very little to change in the code. The Arduino IDE adds all the xxx.ino files into a single file and builds that si it is simply a matter of changing the name of the files xxx.c to xxx.ino, commenting out the nnn.h and mmm.h includes and placing these slightly modified files into the sketchbook folder.
 
 ## Getting Started
 
