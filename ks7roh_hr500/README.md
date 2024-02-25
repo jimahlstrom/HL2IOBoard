@@ -1,4 +1,4 @@
-# IO Board Hardrock-50+ Firmware by KS7ROH
+# IO Board Hardrock-500 Firmware by KS7ROH
 
 This firmware uses the [Hardrock-500](https://sites.google.com/site/hobbypcbhardrock500/hardrock-500-power-amplifier-project) amplifier serial interface to do band changes, facilitate PTT, and to trigger the built-in antenna tuner. The HR-500 serial protocol is described in Chapter 6 of the [Hardrock-500 Manual](https://drive.google.com/file/d/1avSVrf3zBE5ctz3W49rhoNwpsqH4gvXD/view). The IO Board antenna tuning protocol is described in the [main README](../README.md#table-of-i2c-registers).
 
