@@ -1,14 +1,20 @@
 # Arduino code conversion from Pico SDK
 
-This firmware is the modification of the original Pico SDK so that it will compile and install from the Arduino IDE. It is assumed that the user will hqave the Pico extension to the Arduino environment installed and is familiar with how to compile and upload. If this is not the case, there is plenty of information available on the internet and I recommend that you set it up and become familiar with it before proceeding.
+This firmware is the modification of the original Pico SDK firmware so that it will compile and install from the Arduino IDE. It is assumed that the user will have the Pico extension to the Arduino environment installed and is familiar with how to compile and upload. If this is not the case, there is plenty of information available on the internet and I recommend that you set it up and become familiar with it before proceeding.
 
 ## The General Concept
 
-Apart from the i2c_slave_handler.c there is very little to change in the code. The Arduino IDE adds all the xxx.ino files into a single file and builds that si it is simply a matter of changing the name of the files xxx.c to xxx.ino, commenting out the nnn.h and mmm.h includes and placing these slightly modified files into the sketchbook folder.
+Apart from the i2c_slave_handler.c there is very little to change in the code. The Arduino IDE adds all the .ino files in the sketchbook directory into a single file and builds that so it is simply a matter of changing the name of the files xxx.c to xxx.ino, commenting out the hl2ioboard.h and i2c_registers.h includes and placing these slightly modified files into the sketchbook folder. Full details follow:
 
-## Getting Started
+## The firmware example used
 
-### Wire your IO board for serial input/output
+This is almostidentical to that used by Jim N2ADR in his n2adr_test example and uses the same libraries. There is a slight difference where Jim only switches 3 filters to show how to do the operation whereas this Arduino example switches five filters.
+
+### The hardware and wiring required
+
+The filter to be switched is a 1 KW capable home brew filter built as an outboard unit with four of its possible six filters installed. Ten metres is covered with an external 10 metre roofing filter in line so the ten metre position is simply a bridge although the future plan is to build the filter into that position. The 160 metre filter is not installed. The relays are activated by grounding the matching pin on the DB_9M plug on the front of the filter. The DB_9M plug connects to the DB_9M plug on the N2ADR IO Board via a DB_9F to DB_9F cable which is broken by inserting a ULN2003 to isolate the Pico IO Board and provide the drive current for the filter switching relays.
+
+![My outboard LP Filter](./pictures/Filter.jpg)
 
 * Solder a jumper from J4 pin 1 to J7 pin 2.
 * Solder a jumper from J8 pin 1 to J7 pin 3.
@@ -21,7 +27,7 @@ The Hardrock-50 shuts off its serial port while it's in transmit mode, which mea
 * Solder a jumper from J1 pin 37 to U1 pin 31.
 * Solder a jumper from J1 pin 39 to U1 pin 32.
 
-![IO board wiring](./pictures/IOBoard.jpg)
+
 
 ### Install this firmware
 * Power off the HL2 and connect a USB cable to the IO Board.
