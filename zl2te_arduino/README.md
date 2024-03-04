@@ -16,18 +16,24 @@ The filter to be switched is a 1 KW capable home brew filter built as an outboar
 
 ![My outboard LP Filter](./pictures/Filter.jpg)
 
-* Solder a jumper from J4 pin 1 to J7 pin 2.
-* Solder a jumper from J8 pin 1 to J7 pin 3.
-* Solder a jumper from J12 pin 2 to J7 pin 5.
+The picture below shows the DB9_F to DB9_F lead with the small cast aluminium box containing the ULN2003 and the 12 volt input which is used to power the filter switching relays in the filoter box. At present the I/O lines are connected one to one so each filter switch is driven by one output from J4 on the IO Board but my future plan is to use a 3 of 8 decoder to use 3 IO lines to switch up to 8 filters which will free up enough pins on J7 (the DB9 connector) to allow me to add facilities like RS232 output as well as tuner start and tune complete signals.
 
-The Hardrock-50 shuts off its serial port while it's in transmit mode, which means there's no way to find out when it's done tuning. initially I used a timed transmit approach, but that had to allow for the longest possible tune cycle, so the transmitter stayed on longer than necessay. On the HR-50 mailing list, Patrick AC1KM suggested that it might be possible to use the transmitter's SWR reporting to monitor tuning state and Jim N2ADR suggested wiring that makes that possible. with the following connections, the firmware can monitor forward and reverse power and detect when tuning is complete. The only downside is that there aren't dedicated pads on the board, so you have to solder directly to pins on the 50-pin header and the Pico daughterboard. If you don't feel comfortable doing that, you can omit those connections. Tuning will still work, but the transmitter will stay on for a fixed period rather than shutting off when SWR has stopped changing.
+![My Filter interconnecting Lead](./pictures/ConnectorLead.jpg)
 
-### SWR monitoring connections
+### Wiring on the HL2IOBoard
 
-* Solder a jumper from J1 pin 37 to U1 pin 31.
-* Solder a jumper from J1 pin 39 to U1 pin 32.
+As this board is highly experimantal I did not wish to hard wire the connections as these are expected to be altered several times while I test various scenarios so I elected to solder low profile header sockets into J4 and J7 (the DB9 connector) and joined them with short jumpers cut from the matching pin headers. I am using the 50mm case for my HL2 installation which gives me plenty of room above the HL2 IO Board for clearance of the headers. Shown below is a view of the board showing the header setup.
 
+![My HL2IOBoard inter-wiring](./pictures/PicoWiring.jpg)
 
+Using the header pin jumpers:
+* jumper from J4 pin 1 to J7 pin 1.
+* jumper from J4 pin 2 to J7 pin 2.
+* jumper from J4 pin 3 to J7 pin 3.
+* jumper from J4 pin 4 to J7 pin 4.
+* jumper from J4 pin 5 to J7 pin 5.
+* jumper from J4 pin 6 to J7 pin 6.
+* Solder a wire from +5V on the Pico board to J7 pin 9. (Not used in this case but done to provide 5 volts to peripherals in future experiments)
 
 ### Install this firmware
 * Power off the HL2 and connect a USB cable to the IO Board.
