@@ -35,6 +35,44 @@ Using the header pin jumpers:
 * jumper from J4 pin 6 to J7 pin 6.
 * Solder a wire from +5V on the Pico board to J7 pin 9. (Not used in this case but done to provide 5 volts to peripherals in future experiments)
 
+
+
+## Converting the files:
+
+It is a Quirk of the Arduino IDE that software must be compiled from a folder within the sketchbook directory and that the "maim" code name must be the same as this directory within the sketchbook directory so in this case I have Jim's n2adr_basic/main.c file to my zl2te_arduino directory and renamed it to zl2te_arduino.ino - Note that all .c or .cpp files are renamed to .ino for the Arduino IDE environment.
+
+### Included files:
+
+The CMakeLists.txt files tell the SDK compiler which files to include and also references the library files. The ones used in the n2adr_basic example are ...
+main.c
+hl2ioboard.h
+i2cregisters.h
+    and from the library:
+	configure_pins.c
+	led_flasher.c
+	i2c_slave_handler.c
+	ft817_band_volts.c
+	icom_ah4.c
+	frequency_code.c
+	fcode2bcode.c
+
+In the arduino IDE, rather than having a C Make List file you simply place the files to be used into the sketchbook sub directory that you have created for the project and at compile time they will be picked up by the compiler and compiled as though they were a single file. This means that many #include s will be redundant and are best commented out or deleted and I will go through this file by file as this document proceeds. The final file list in the sketchbook sub directory will be like this ...
+
+main.c                  becomes zl2te_arduino.ino
+hl2ioboard.h            remains hl2ioboard.h
+i2cregisters.h          remains i2cregisters.h
+configure_pins.c        becomes configure_pins.c
+fcode2bcode.c           becomes fcode2bcode.c
+frequency_code.c        becomes frequency_code.c
+ft817_band_volts.c      becomes ft817_band_volts.c
+i2c_slave_handler.c     becomes i2c_slave_handler.c
+icom_ah4.c              becomes icom_ah4.c
+led_flasher.c           becomes led_flasher.c
+
+The picture below shows how this file arrangement will appear in the Arduino IDE
+
+![Arduino IDE source files](./pictures/ArduinoIDE.png)
+
 ### Install this firmware
 * Power off the HL2 and connect a USB cable to the IO Board.
 * Push the button on the Pico and then plug the USB cable into your PC.
