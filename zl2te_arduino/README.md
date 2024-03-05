@@ -131,11 +131,11 @@ This file is the most complex as it receives the i2c signals and processes them.
 The first signal sent in from the i2c master (the HL2) to the slave (IO Board) is an event to describe what kind of event it is which is processed in a switch ... case statement as in this psuedo code ...
 <pre>
 switch (event) {
-	case I2C_SLAVE_RECEIVE: // master has written data and this slave receives it
+    case I2C_SLAVE_RECEIVE: // master has written data and this slave receives it
         Process this data;
     case I2C_SLAVE_REQUEST: // master is requesting data
         Process this data;
-	case I2C_SLAVE_FINISH: // master has signalled Stop or Restart
+    case I2C_SLAVE_FINISH: // master has signalled Stop or Restart
         Stop the I2C_SLAVE_RECEIVE or I2C_SLAVE_REQUEST procedure
 </pre>
 The above code is handled by callback functions declared in zl2te_arduino.ino as "receiveEvent" and "requestEvent" and these replace I2C_SLAVE_RECEIVE and I2C_SLAVE_REQUEST respectively. There is no need to handle I2C_SLAVE_FINISH as this is built into the wire library.
@@ -152,30 +152,24 @@ Commenting out #include "hl2ioboard.h" and #include "i2c_registers.h" in lines 1
 #### 10. led_flasher.ino
 Commenting out #include "hl2ioboard.h" on line 7 is the only change required on this file.
 
-### Install this firmware
+### Installing the firmware
+The firmware needs to be compiled for a Raspberry Pi Pico in the Arduino IDE which means that the files used need to be in your sketchbook directory. The easiest way to achieve this is to clone the repository (git clone https://github.com/jimahlstrom/HL2IOBoard.git) into a suitable directory - maybe a "Programs" directory and copy the directory "zl2te_arduino" into your sketchbook. There is no need to stay with the name zl2te_arduino but if you change it then you need to rename the zl2te_arduino.ino to the same name as the parent directory.<br />
+If you are a linux user, make sure that you are a member of the dialout and tty groups.
+
 * Power off the HL2 and connect a USB cable to the IO Board.
-* Push the button on the Pico and then plug the USB cable into your PC.
-* The Pico will appear as a flash drive on the PC. Then download the file [build/main.uf2](build/main.uf2) and copy it to the Pico.
-* After the file is copied, the Pico will no longer show up as an external drive.
+* Plug the USB cable into your PC.
+* The Pico will appear as a USB connection on the Arduino which needs to be selected as the port.
+* Compile the code and check for errors and if clean upload. It should automatically make the Pico will appear as a flash drive and upload the code but in some cases you may need to unplug the USB cable, push the button on the Pico and plug the
+  cable back in.
 * Disconnect from the PC and power on the HL2.
 
-For more detail, see the instructions in [Installing Firmware section of the main README](../README.md#installing-firmware).
+####This is what a good compile looke like.
+![Arduino IDE good compile](./pictures/ArduinoIDEcompile.png)
+### Post installation testing
+Check that when switching bands the correct voltage occurs on the associated pin on J4. Yo can see from the code in the zl2te_arduino.ino file which pin belongs to which band. The same test can be applied to the band voltage on J4 pin 8. This will prove that everything is working and you can customize from there.
 
-### Amplifier setup
-
-In the amplifier setup menu, set option `4. Transceiver` to `Other` and option `2. ACC Baud Rate` to 19200.
-
-### Wire up a cable
-
-You need a DB-9 male to DB-9 female cable with pins 2, 3 and 5 connected straight through, that is pin 2 to pin 2, pin 3 to pin 3 and pin 5 to pin 5.
-
-## Operating
-
-Once the cable is hooked between the IO Board and the HR-50, changing frequencies in SDR software that supports the IO Board should cause the amplifier to change bands. As you switch band in your software, you should see the amplifier change bands as well. It does _not_ trigger the antenna tuner&mdash;you must do that manually if needed.
-
-If you tune to a frequency outside of a band the amplifier supports, the HR-50 `BAND:` display will indicate `UNK` and the amplifier will not go into transmit. Because the IO Board doesn't receive the exact transmit frquency, this will not happen exactly at the band edge, but when tuned some distance outside of it. It should not happen when tuned inside the band.
-
-As far as I'm aware, the only software that implements the antenna tuning protocol is [Reid's HL2-specific Thetis fork](https://github.com/mi0bot/OpenHPSDR-Thetis/releases), starting in version v2.10.3.4-beta1. To trigger automatic tuning, click the `TUNE` button while pressing the `Ctrl` key. (Be sure the `Setup|General|Ant/Filters|Antenna|Disable on Tune Pwr <35W` box is checked, or transmit may stop before tuning is complete.)
+## Looking ahead
+It is unlikely that the basic environment is what you will be looking for in your final installation but this at least is a foundation to build your code on. In my case I will be writing code to talk to my antenna tuner which at present has a single input line to prime it to start tuning on the arrival or more than 1 watt signal and when it has stopped tuning I stop the spot button. Very manual, so using the potential of the IO board I may send serial commands like frequency in use and receive back responses including the L and C used and tune finished. The potential is big here and I am looking at monitoring for my linear and perhaps sending data to an external application for remote access as I run my HL2 on remote mode all the time even on my home QTH
 
 ## Questions?
 
