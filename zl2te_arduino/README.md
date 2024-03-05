@@ -74,8 +74,57 @@ The picture below shows how this file arrangement will appear in the Arduino IDE
 ![Arduino IDE source files](./pictures/ArduinoIDE.png)
 
 ### Changes to the source files
-1. zl2te_arduino.ino (was old main.c)
-This file has the most extensive changes as the Pico SDK I2C functions are completely replaced by the wire library which needs to be included and its callback functions declared. It works pretty much the same as the SDK except that the events and their stop procedures are more transparent with the wire library handling all this.
+#### 1. zl2te_arduino.ino (was old main.c)
+This file has the most extensive changes in function as the Pico SDK I2C functions are completely replaced by the wire library which needs to be included and its callback functions declared but in terms of lines of code it is fairly minimal. It works pretty much the same as the SDK except that the events and their stop procedures are more transparent with the wire library handling all this.
+No changes to the functionality of main.c were made in the zl2te_arduino.ino code but some re arranging to accomodate using the wire library and the format that Arduino IDE uses for its layout took place.
+For the Arduino IDE the format of the code is like this:
+
+#includes and globals
+
+void setup() {
+  // put your setup code here, to run once:
+
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+
+}
+
+In the global space wire.h was added
+#include <Wire.h>
+and a debug was created to monitor the traffic on the I2C port to the HL2 which can be commented out on the final compile. All the debug stuff is enclosed in #ifdef's and is in addition to Jim's main.c code.
+
+All the initialisation code was shifted into the "void setup()" space but is unchanged from the original.
+
+The running code thqat is contained in the "while (1) {	// Wait for something to happen" statement is shifted into the "void loop() {" procedure in the Arduino IDE and is unchanged from the original apart from the fact that I have expanded the "switch (band) {  // Set some GPIO pins according to the band" statement to accomodate 6 bands for my purposes rather than the original 3 bands that Jim used in his example.
+
+#### 2.hl2ioboard.h
+
+
+#### 3. i2c_registers.h
+
+
+#### 4. configure_pins.ino
+
+
+#### 5. fcode2bcode.ino
+
+
+#### 6. frequency_code.ino
+
+
+#### 7. ft817_band_volts.ino
+
+
+#### 8. i2c_slave_handler.ino
+
+
+#### 9. icom_ah4.ino
+
+
+#### 10. led_flasher.ino
+
 
 ### Install this firmware
 * Power off the HL2 and connect a USB cable to the IO Board.
