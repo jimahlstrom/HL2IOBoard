@@ -26,8 +26,6 @@
 #define GPIO03_INTTR	3
 #define GPIO04_Fan	4
 #define GPIO05_xxx	5
-#define GPIO04_I2C0_SDA	4
-#define GPIO05_I2C0_SCL	5
 #define GPIO06_In5	6
 #define GPIO07_In4	7
 #define GPIO08_Out8	8
