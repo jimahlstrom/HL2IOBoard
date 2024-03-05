@@ -7,7 +7,6 @@
 #include <Wire.h>
 #include "hl2ioboard.h"
 #include "i2c_registers.h"
-//#include "fcode2bcode.c"
 
 // These are the major and minor version numbers for firmware. You must set these.
 uint8_t firmware_version_major = 7;
