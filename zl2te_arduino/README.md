@@ -126,8 +126,18 @@ No changes to this file at all.
 Commenting out #include "hl2ioboard.h" and #include "i2c_registers.h" in lines 8 & 9 is all that is required on this file.
 
 #### 8. i2c_slave_handler.ino
-This file requires the most changes. The main flow of the function is not changed but how it receives the i2c signals requires some code changes.
+This file is the most complex as it receives the i2c signals and processes them. The original SDK code used the raw data from i2c interrupts which are hidden in the wire library and requires some code changes.
 
+The first signal sent in from the i2c master (the HL2) to the slave (IO Board) is an event to describe what kind of event it is which is processed in a switch ... case statement as in this psuedo code ...
+<pre>
+switch (event) {
+	case I2C_SLAVE_RECEIVE: // master has written data and this slave receives it
+        Process this data;
+    case I2C_SLAVE_REQUEST: // master is requesting data
+        Process this data;
+	case I2C_SLAVE_FINISH: // master has signalled Stop or Restart
+        Stop the I2C_SLAVE_RECEIVE or I2C_SLAVE_REQUEST procedure
+</pre>
 #### 9. icom_ah4.ino
 Commenting out #include "hl2ioboard.h" and #include "i2c_registers.h" in lines 13 & 14 is all that is required on this file.
 
