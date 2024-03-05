@@ -60,31 +60,20 @@ void configure_pins(bool use_uart1, bool use_pwm4a) {
     gpio_set_dir(GPIO16_Out1, GPIO_OUT);
     gpio_put(GPIO16_Out1, 0);
   }
-  gpio_init(GPIO19_Out2);
-  gpio_set_dir(GPIO19_Out2, GPIO_OUT);
-  gpio_put(GPIO19_Out2, 0);
-  gpio_init(GPIO20_Out3);
-  gpio_set_dir(GPIO20_Out3, GPIO_OUT);
-  gpio_put(GPIO20_Out3, 0);
-  gpio_init(GPIO11_Out4);
-  gpio_set_dir(GPIO11_Out4, GPIO_OUT);
-  gpio_put(GPIO11_Out4, 0);
-  gpio_init(GPIO10_Out5);
-  gpio_set_dir(GPIO10_Out5, GPIO_OUT);
-  gpio_put(GPIO10_Out5, 0);
-  gpio_init(GPIO22_Out6);
-  gpio_set_dir(GPIO22_Out6, GPIO_OUT);
-  gpio_put(GPIO22_Out6, 0);
-  gpio_init(GPIO09_Out7);
-  gpio_set_dir(GPIO09_Out7, GPIO_OUT);
-  gpio_put(GPIO09_Out7, 0);
+  gpio_init(GPIO19_Out2);  gpio_set_dir(GPIO19_Out2, GPIO_OUT);  gpio_put(GPIO19_Out2, 0);
+  gpio_init(GPIO20_Out3);  gpio_set_dir(GPIO20_Out3, GPIO_OUT);  gpio_put(GPIO20_Out3, 0);
+  gpio_init(GPIO11_Out4);  gpio_set_dir(GPIO11_Out4, GPIO_OUT);  gpio_put(GPIO11_Out4, 0);
+  gpio_init(GPIO10_Out5);  gpio_set_dir(GPIO10_Out5, GPIO_OUT);  gpio_put(GPIO10_Out5, 0);
+  gpio_init(GPIO22_Out6);  gpio_set_dir(GPIO22_Out6, GPIO_OUT);  gpio_put(GPIO22_Out6, 0);
+  gpio_init(GPIO09_Out7);  gpio_set_dir(GPIO09_Out7, GPIO_OUT);  gpio_put(GPIO09_Out7, 0);
   if (use_pwm4a) {  // PWM4 A
     gpio_init(GPIO08_Out8);
     gpio_set_function(GPIO08_Out8, GPIO_FUNC_PWM);
     pwm_set_wrap(FT817_SLICE, FT817_WRAP);
     pwm_set_chan_level(FT817_SLICE, FT817_CHAN, 0);
     pwm_set_enabled(FT817_SLICE, true);
-  } else {
+  } 
+  else {
     gpio_init(GPIO08_Out8);
     gpio_set_dir(GPIO08_Out8, GPIO_OUT);
     gpio_put(GPIO08_Out8, 0);
