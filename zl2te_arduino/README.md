@@ -103,7 +103,7 @@ The running code that is contained in the "while (1) {	// Wait for something to 
 Changes were quite minimal here and simply consisted of commenting out 3 lines associated with the Pico SDK i2c handling which has been replaced by the Arduino IDE wire library. I have also declared a 30 character buffer to hold my debug messages which probably shouild have been enclosed in an #ifdef DEBUG_I2C
 
 #### 3. i2c_registers.h
-
+No changes occurred in this file
 
 #### 4. configure_pins.ino
 
