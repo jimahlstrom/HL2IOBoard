@@ -138,6 +138,14 @@ switch (event) {
 	case I2C_SLAVE_FINISH: // master has signalled Stop or Restart
         Stop the I2C_SLAVE_RECEIVE or I2C_SLAVE_REQUEST procedure
 </pre>
+The above code is handled by callback functions declared in zl2te_arduino.ino as "receiveEvent" and "requestEvent" and these replace I2C_SLAVE_RECEIVE and I2C_SLAVE_REQUEST respectively. There is no need to handle I2C_SLAVE_FINISH as this is built into the wire library.
+
+The code inside the "receiveEvent" callback function handles the incoming data from the HL2 i2c master a little differently from the I2C_SLAVE_RECEIVE which handles each incoming byte one by one whereas the wire library keeps reading data in a stream until the (hidden) stop is sent. This requires a buffer to hold the stream which is declared as "uint8_t inward[6];". The first character received into the buffer will be the Control Register and subsequent bytes, the data to be processed referred to the control register. The HL2 master will only send either one or two bytes with the first byte being the control register and if there is a second byte, the data. In the case of a single byte, the control register is being nominated for a "requestEvent" and the callback can be terminated at that point. The receiveEvent also receives a byte count of the bytes being sent from the master and this can be used to discriminate between a receiveEvent requiring further processing and setting a the control register for a requestEvent. The "inward[6]" buffer really only needs to be 3 bytes long but when experimenting initially I made the buffer bigger in case the HL2 was sending control register plus 4 data bytes which is not the case but I left the buffer size at 6 as memory is not an issue with the Pico.
+
+In addition in the early stages I was debugging and created a buffer to hold the string sent from the HL2 and display it as the callback and the data received formatted as a decimal number. I have put all these in a #ifdef DEBUG_I2C to remove them on final compile by commenting out the line "#define DEBUG_I2C" in zl2te_arduino.ino in order to skip all this. You can remove all these statements from the code if you do not wish to have the debug facility available.
+
+The callbacks process the commands from the HL2 in exactly the same manner as Jim does in his n2adr_basic software and there are no changes to the code around this.
+
 #### 9. icom_ah4.ino
 Commenting out #include "hl2ioboard.h" and #include "i2c_registers.h" in lines 13 & 14 is all that is required on this file.
 
