@@ -95,12 +95,12 @@ In the global space wire.h was added
 #include <Wire.h>
 and a debug was created to monitor the traffic on the I2C port to the HL2 which can be commented out on the final compile. All the debug stuff is enclosed in #ifdef's and is in addition to Jim's main.c code.
 
-All the initialisation code was shifted into the "void setup()" space but is unchanged from the original.
+All the initialisation code was shifted into the "void setup()" space but is mostly unchanged from the original. stdio is not used as the Arduino IDE has built in print functions etc. and the wire library needs to be invoked along with the function callbacks to deal with the i2c traffic.
 
-The running code thqat is contained in the "while (1) {	// Wait for something to happen" statement is shifted into the "void loop() {" procedure in the Arduino IDE and is unchanged from the original apart from the fact that I have expanded the "switch (band) {  // Set some GPIO pins according to the band" statement to accomodate 6 bands for my purposes rather than the original 3 bands that Jim used in his example.
+The running code that is contained in the "while (1) {	// Wait for something to happen" statement is shifted into the "void loop() {" procedure in the Arduino IDE and is unchanged from the original apart from the fact that I have expanded the "switch (band) {  // Set some GPIO pins according to the band" statement to accomodate 6 bands for my purposes rather than the original 3 bands that Jim used in his example.
 
 #### 2.hl2ioboard.h
-
+Changes were quite minimal here and simply consisted of commenting out 3 lines associated with the Pico SDK i2c handling which has been replaced by the Arduino IDE wire library. I have also declared a 30 character buffer to hold my debug messages which probably shouild have been enclosed in an #ifdef DEBUG_I2C
 
 #### 3. i2c_registers.h
 
