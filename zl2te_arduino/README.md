@@ -106,18 +106,16 @@ Changes were quite minimal here and simply consisted of commenting out 3 lines a
 No changes occurred in this file
 
 #### 4. configure_pins.ino
-The only changes in this file are for the conversion of Pico SDK i2c initialisation where lines 16 & 17 are changed:
+The only changes in this file are for the conversion of Pico SDK i2c initialisation where lines 16 & 17 are changed:<br/>
+from<br/>
+	gpio_init(GPIO14_I2C1_SDA);	gpio_set_function(GPIO14_I2C1_SDA, GPIO_FUNC_I2C);<br/>
+	gpio_init(GPIO15_I2C1_SCL);	gpio_set_function(GPIO15_I2C1_SCL, GPIO_FUNC_I2C);<br/>
 
-from
-	gpio_init(GPIO14_I2C1_SDA);	gpio_set_function(GPIO14_I2C1_SDA, GPIO_FUNC_I2C);
-	gpio_init(GPIO15_I2C1_SCL);	gpio_set_function(GPIO15_I2C1_SCL, GPIO_FUNC_I2C);
-
-to
-  Wire1.setSDA(GPIO14_I2C1_SDA);
-  Wire1.setSCL(GPIO15_I2C1_SCL);
-
-and lines 18 & 19 are commented out
-  // i2c_init(i2c1, I2C1_BAUDRATE);
+to<br/>
+  Wire1.setSDA(GPIO14_I2C1_SDA);<br/>
+  Wire1.setSCL(GPIO15_I2C1_SCL);<br/>
+and lines 18 & 19 are commented out<br/>
+  // i2c_init(i2c1, I2C1_BAUDRATE);<br/>
   // i2c_slave_init(i2c1, I2C1_ADDRESS, &i2c_slave_handler);
 
 #### 5. fcode2bcode.ino
