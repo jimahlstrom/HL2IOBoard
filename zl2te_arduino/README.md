@@ -118,22 +118,22 @@ $~~~~$ // i2c_init(i2c1, I2C1_BAUDRATE);<br/>
 $~~~~$ // i2c_slave_init(i2c1, I2C1_ADDRESS, &i2c_slave_handler);
 
 #### 5. fcode2bcode.ino
-
+Simply commenting out the redundant #include "hl2ioboard.h" in line 8 is all that is required here.
 
 #### 6. frequency_code.ino
-
+No changes to this file at all.
 
 #### 7. ft817_band_volts.ino
-
+Commenting out #include "hl2ioboard.h" and #include "i2c_registers.h" in lines 8 & 9 is all that is required on this file.
 
 #### 8. i2c_slave_handler.ino
-
+This file requires the most changes. The main flow of the function is not changed but how it receives the i2c signals requires some code changes.
 
 #### 9. icom_ah4.ino
-
+Commenting out #include "hl2ioboard.h" and #include "i2c_registers.h" in lines 13 & 14 is all that is required on this file.
 
 #### 10. led_flasher.ino
-
+Commenting out #include "hl2ioboard.h" on line 7 is the only change required on this file.
 
 ### Install this firmware
 * Power off the HL2 and connect a USB cable to the IO Board.
