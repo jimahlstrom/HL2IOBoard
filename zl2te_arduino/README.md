@@ -44,34 +44,38 @@ It is a Quirk of the Arduino IDE that software must be compiled from a folder wi
 ### Included files:
 
 The CMakeLists.txt files tell the SDK compiler which files to include and also references the library files. The ones used in the n2adr_basic example are ...
-main.c
-hl2ioboard.h
-i2cregisters.h
-    and from the library:
-	configure_pins.c
-	led_flasher.c
-	i2c_slave_handler.c
-	ft817_band_volts.c
-	icom_ah4.c
-	frequency_code.c
-	fcode2bcode.c
+* main.c
+* hl2ioboard.h
+* i2cregisters.h
+and from the library:
+* configure_pins.c
+* led_flasher.c
+* i2c_slave_handler.c
+* ft817_band_volts.c
+* icom_ah4.c
+* frequency_code.c
+* fcode2bcode.c
 
 In the arduino IDE, rather than having a C Make List file you simply place the files to be used into the sketchbook sub directory that you have created for the project and at compile time they will be picked up by the compiler and compiled as though they were a single file. This means that many #include s will be redundant and are best commented out or deleted and I will go through this file by file as this document proceeds. The final file list in the sketchbook sub directory will be like this ...
 
-main.c                  becomes zl2te_arduino.ino
-hl2ioboard.h            remains hl2ioboard.h
-i2cregisters.h          remains i2cregisters.h
-configure_pins.c        becomes configure_pins.c
-fcode2bcode.c           becomes fcode2bcode.c
-frequency_code.c        becomes frequency_code.c
-ft817_band_volts.c      becomes ft817_band_volts.c
-i2c_slave_handler.c     becomes i2c_slave_handler.c
-icom_ah4.c              becomes icom_ah4.c
-led_flasher.c           becomes led_flasher.c
+* main.c                  becomes	 zl2te_arduino.ino
+* hl2ioboard.h            remains	 hl2ioboard.h
+* i2cregisters.h          remains	 i2cregisters.h
+* configure_pins.c        becomes	 configure_pins.c
+* fcode2bcode.c           becomes	 fcode2bcode.c
+* frequency_code.c        becomes	 frequency_code.c
+* ft817_band_volts.c      becomes	 ft817_band_volts.c
+* i2c_slave_handler.c     becomes	 i2c_slave_handler.c
+* icom_ah4.c              becomes	 icom_ah4.c
+* led_flasher.c           becomes	 led_flasher.c
 
 The picture below shows how this file arrangement will appear in the Arduino IDE
 
 ![Arduino IDE source files](./pictures/ArduinoIDE.png)
+
+### Changes to the source files
+1. zl2te_arduino.ino (was old main.c)
+This file has the most extensive changes as the Pico SDK I2C functions are completely replaced by the wire library which needs to be included and its callback functions declared. It works pretty much the same as the SDK except that the events and their stop procedures are more transparent with the wire library handling all this.
 
 ### Install this firmware
 * Power off the HL2 and connect a USB cable to the IO Board.
