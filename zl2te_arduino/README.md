@@ -78,19 +78,17 @@ The picture below shows how this file arrangement will appear in the Arduino IDE
 This file has the most extensive changes in function as the Pico SDK I2C functions are completely replaced by the wire library which needs to be included and its callback functions declared but in terms of lines of code it is fairly minimal. It works pretty much the same as the SDK except that the events and their stop procedures are more transparent with the wire library handling all this.
 No changes to the functionality of main.c were made in the zl2te_arduino.ino code but some re arranging to accomodate using the wire library and the format that Arduino IDE uses for its layout took place.
 For the Arduino IDE the format of the code is like this:
-
+<pre>
 #includes and globals
 
 void setup() {
   // put your setup code here, to run once:
-
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
-
 }
-
+</pre>
 In the global space wire.h was added
 #include <Wire.h>
 and a debug was created to monitor the traffic on the I2C port to the HL2 which can be commented out on the final compile. All the debug stuff is enclosed in #ifdef's and is in addition to Jim's main.c code.
@@ -114,10 +112,9 @@ from
 to
     Wire1.setSDA(GPIO14_I2C1_SDA);
     Wire1.setSCL(GPIO15_I2C1_SCL);
-and lines 18 & 19 are commented out<br/>
-    // i2c_init(i2c1, I2C1_BAUDRATE);<br/>
+and lines 18 & 19 are commented out
+    // i2c_init(i2c1, I2C1_BAUDRATE);
     // i2c_slave_init(i2c1, I2C1_ADDRESS, &i2c_slave_handler);
-              This is a test line
 </pre>
 #### 5. fcode2bcode.ino
 Simply commenting out the redundant #include "hl2ioboard.h" in line 8 is all that is required here.
