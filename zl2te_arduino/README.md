@@ -163,7 +163,7 @@ If you are a linux user, make sure that you are a member of the dialout and tty 
   cable back in.
 * Disconnect from the PC and power on the HL2.
 
-####This is what a good compile looke like.
+#### This is what a good compile looke like.
 ![Arduino IDE good compile](./pictures/ArduinoIDEcompile.png)
 ### Post installation testing
 Check that when switching bands the correct voltage occurs on the associated pin on J4. Yo can see from the code in the zl2te_arduino.ino file which pin belongs to which band. The same test can be applied to the band voltage on J4 pin 8. This will prove that everything is working and you can customize from there.
