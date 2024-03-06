@@ -159,8 +159,7 @@ If you are a linux user, make sure that you are a member of the dialout and tty 
 * Power off the HL2 and connect a USB cable to the IO Board.
 * Plug the USB cable into your PC.
 * The Pico will appear as a USB connection on the Arduino which needs to be selected as the port.
-* Compile the code and check for errors and if clean upload. It should automatically make the Pico will appear as a flash drive and upload the code but in some cases you may need to unplug the USB cable, push the button on the Pico and plug the
-  cable back in.
+* Compile the code and check for errors and if clean upload. It should automatically make the Pico appear as a flash drive and upload the code but in some cases you may need to unplug the USB cable, push the button on the Pico and plug the cable back in.
 * Disconnect from the PC and power on the HL2.
 
 #### This is what a good compile looke like.
