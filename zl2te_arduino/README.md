@@ -37,7 +37,7 @@ Using the header pin jumpers:
 
 :warning: Note:
 
-I have used J4 pin 6 for filter switching. This had been previously assigned to the IcomAh4 START line so to avoid a clash the IcomAh4 START line has now been assigned to GPIO09_Out7.
+I have used J4 pin 6 for filter switching. This had been previously assigned to the IcomAh4 START line. To avoid a clash, the IcomAh4 START line has now been assigned to GPIO09_Out7.
 
 ## Converting the files:
 
