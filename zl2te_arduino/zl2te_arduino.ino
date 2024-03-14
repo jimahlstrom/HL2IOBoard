@@ -47,8 +47,8 @@ void loop() {               // Wait for something to happen
   }
 #endif
   // Control the Icom AH-4 antenna tuner.
-  // Assume the START line is on J4 pin 6 and the KEY line is on J8 pin 2.
-  IcomAh4(GPIO22_Out6, GPIO18_In2);
+  // Assume the START line is on J4 pin 7 and the KEY line is on J8 pin 2.
+  IcomAh4(GPIO22_Out7, GPIO18_In2);
   // Poll for a changed Tx band, Rx band and T/R change
   change_band = false;
   is_rx = gpio_get(GPIO13_EXTTR);  // true for receive, false for transmit
