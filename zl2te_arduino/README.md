@@ -35,7 +35,8 @@ Using the header pin jumpers:
 * jumper from J4 pin 6 to J7 pin 6.
 * Solder a wire from +5V on the Pico board to J7 pin 9. (Not used in this case but done to provide 5 volts to peripherals in future experiments)
 
-####:warning: Note:
+:warning: Note:
+
 I have used J4 pin 6 for filter switching. This had been previously assigned to the IcomAh4 START line so to avoid a clash the IcomAh4 START line has now been assigned to GPIO09_Out7.
 
 ## Converting the files:
