@@ -313,10 +313,13 @@ SDR software is not required to implement this command. In the future there may 
 |10|REG_FIRMWARE_MINOR|Read only. Firmware minor version|
 |11|REG_RF_INPUTS|The receive input usage, 0, 1 or 2.|
 
-REG_RF_INPUTS determines how the SMA receive input J9 and the Pure Signal input J10 are used. Mode 0 means that the receive input is not used,
-but the Pure Signal input is available. Mode 1 means that the receive input is used instead of the usual HL2 input,
-and the Pure Signal input is not available. Mode 2 means that the receive input is used for receive, and the Pure
-Signal input is used for transmit.
+REG_RF_INPUTS determines how the SMA receive input J9 and the Pure Signal input J10 are used.
+Mode 0 means that J9 is not used, and the usual HL2 input is the receive input.
+In mode 0 the Pure Signal input J10 is mixed with the receive signal.
+For modes 1 and 2, J9 is used instead of the usual HL2 receive input.
+Mode 1 means that J9 is used for the receive signal and the Pure Signal input is not available.
+Mode 2 means that for receive, J9 is used for the receive signal;
+and that for transmit, the Pure Signal input is passed to the HL2 instead of a receive signal.
 
 
 |Register|Name|Description|
