@@ -1,6 +1,6 @@
 # IO Board SPE Expert Amp Firmware by M0HPF
 
-This firmware uses the [SPE Expert](https://hobbypcb.com/products/hardrock-50-hf-power-amp-kit) amplifier serial interface to do band changes.
+This firmware uses the SPE Expert amplifier serial interface to do band changes.
 The firmware is inspired from the N!ADJ Hardrock-50 firmware.
 The firmware requires a small pcb called Hw-027 which contains MAX3232 chip to convert TTL signal to RS232 signal and vice-versa so that the IO board firmware can communicate with SPE Expert Amp directly.
 
