@@ -313,10 +313,13 @@ SDR software is not required to implement this command. In the future there may 
 |10|REG_FIRMWARE_MINOR|Read only. Firmware minor version|
 |11|REG_RF_INPUTS|The receive input usage, 0, 1 or 2.|
 
-REG_RF_INPUTS determines how the SMA receive input J9 and the Pure Signal input J10 are used. Mode 0 means that the receive input is not used,
-but the Pure Signal input is available. Mode 1 means that the receive input is used instead of the usual HL2 input,
-and the Pure Signal input is not available. Mode 2 means that the receive input is used for receive, and the Pure
-Signal input is used for transmit.
+REG_RF_INPUTS determines how the SMA receive input J9 and the Pure Signal input J10 are used.
+Mode 0 means that J9 is not used, and the usual HL2 input is the receive input.
+In mode 0 the Pure Signal input J10 is mixed with the receive signal.
+For modes 1 and 2, J9 is used instead of the usual HL2 receive input.
+Mode 1 means that J9 is used for the receive signal and the Pure Signal input is not available.
+Mode 2 means that for receive, J9 is used for the receive signal;
+and that for transmit, the Pure Signal input is passed to the HL2 instead of a receive signal.
 
 
 |Register|Name|Description|
@@ -343,7 +346,9 @@ If a transverter is in use, the Rx frequency includes the transverter offset.
 
 The Pico has one 12-bit ADC that can read from ADC0, ADC1 and ADC2 on pins GPIO26, GPIO27 and GPIO28.
 Always read the most significant byte first because that triggers the conversion.
-Since reads always return four bytes, you can return two ADC values at once.
+A read from ADC0 returns the value of ADC0 and ADC1 in the four byte response.
+A read from ADC1 returns the value of ADC1 and ADC2.
+Reading the two values in quick succession can be used to calculate SWR from forward and reverse power.
 
 |Register|Name|Description|
 |--------|----|-----------|
@@ -358,26 +363,16 @@ A zero means the first (default) antenna.
 |--------|----|-----------|
 |32|REG_OP_MODE|Set the operating Mode|
 
-Operating modes values (Curently Based on Thetis internal definitions):
 
-|Mode|Value|
-|---|---|
-|LSB|0|
-|USB|1|
-|DSB|2|
-|CWL|3|
-|CWU|4|
-|FM|5|
-|AM|6|
-|DIGU|7|
-|SPEC|8|
-|DIGL|9|
-|SAM|10|
-|DRM|11|
-|AM_LSB|12|
-|AM_USB|13|
+||Mode|Value|Mode|Value|Mode|Value|Mode|Value|
+|---|---|---|---|---|---|---|---|---|
+||LSB|0|USB|1|DSB|2|CWL|3|
+||CWU|4|FM|5|AM|6|DIGU|7|
+||SPEC|8|DIGL|9|SAM|10|DRM|11|
+||AM_LSB|12|AM_USB|13|
 
-Additional modes can be appended to the bottom of the list.
+Operating mode values are based on Thetis internal definitions.
+Note that value zero does not mean "unspecified".
 
 |Register|Name|Description|
 |--------|----|-----------|
