@@ -92,17 +92,17 @@ void IcomAh4(uint8_t AH4_START, uint8_t AH4_KEY)
 			tuner_time0 = get_absolute_time ();			// Start 60 ms error window
 		}
 		break;
-	case 7:		// Tuning: Wait to see if the AH-4 pulses the KEY low to indicate failure.
-			// The KEY starts high. If the AH-4 was unable to achieve tuning, it pulses the KEY low for 20 ms
-			// and then changes it to high. Waiting 60 ms after KEY goes high after tuning
-			// provides a confirmation read during the possible error pulse window.
-		if (absolute_time_diff_us(tuner_time0, get_absolute_time ()) / 1000 >= 60) {
-			state_antenna_tuner = 0;		// Return to idle
-			Registers[REG_ANTENNA_TUNER] = 0;	// Success
-		}
-		if (gpio_get(AH4_KEY) == 0) {			// Detected error pulse
-			state_antenna_tuner = 0;		// Return to idle
-			Registers[REG_ANTENNA_TUNER] = 0xFC;	// Report error pulse to host
+	case 7:		// After tuning wait to see if the AH-4 pulses the KEY low to indicate failure.
+			// The KEY goes high after tuning. If the AH-4 was unable to achieve tuning it
+			// waits for 20 ms and then changes the KEY low for 200 ms, and then changes it to high.
+			// Waiting 60 ms after KEY goes high after tuning provides a confirmation read
+			// during the possible error pulse window.
+		if (absolute_time_diff_us(tuner_time0, get_absolute_time()) / 1000 >= 60) {
+			state_antenna_tuner = 0;                 // Return to idle
+			if (gpio_get(AH4_KEY) == 0)
+				Registers[REG_ANTENNA_TUNER] = 0xFC; // Detected error pulse
+			else
+				Registers[REG_ANTENNA_TUNER] = 0;    // Success
 		}
 		break;
 	}
