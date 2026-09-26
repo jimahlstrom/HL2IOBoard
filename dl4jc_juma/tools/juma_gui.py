@@ -148,6 +148,8 @@ class App:
         self.cards = []         # widgets to recolour: (widget, bg key, fg key)
         self.meters = []
         self.buttons = []
+        self.fails = 0          # consecutive failed reads
+        self.busy = False       # the radio is streaming for somebody else
 
         self._build()
         self._apply_theme()

@@ -963,6 +963,11 @@ int main(void)
 	}
 	Registers[REG_JUMA_MODE] = boot_mode;
 	mode_last = boot_mode;
+
+	// Let the SDR software recognise the board, or it will not send the
+	// transmit frequency at all and nothing downstream of it can work.
+	Registers[REG_LPF_DETECT] = LPF_DETECT_MAGIC;
+	Registers[REG_LPF_STATUS] = 0;
 	IrqHandler[REG_CONTROL]  = on_control_written;
 
 	int UART_IRQ = UART_ID == uart0 ? UART0_IRQ : UART1_IRQ;
@@ -980,6 +985,7 @@ int main(void)
 			// retry counters do not carry a state that no longer exists.
 			// 'Power-up condition' now means what is in flash, if
 			// anything is - the same thing a real power cycle gives.
+			Registers[REG_LPF_DETECT] = LPF_DETECT_MAGIC;
 			Registers[REG_JUMA_MODE] =
 				saved_valid ? saved_mode : (uint8_t)JUMA_MODE_AT_BOOT;
 			mode_last = Registers[REG_JUMA_MODE];
