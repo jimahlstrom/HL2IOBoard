@@ -632,8 +632,18 @@ exactly the mismatch the host is watching for. The other way round would hand
 out a group that looks coherent and is not.
 
 `hl2io/tools/juma_link.py` does the checking and reads again on a mismatch.
-Measured afterwards on the same radio: **187 rounds, no retries**, and under a
-simulated one-in-40 drop rate, 25 of 25 rounds delivered and none wrong.
+
+Over an hour of continuous use: **3152 rounds, 97 of them retried** — 3.1 %,
+which agrees with the one-in-25 seen in the short runs, and not one wrong value
+reached the display. Under a simulated one-in-40 drop rate the tests deliver 25
+of 25 rounds with none wrong, and under one-in-2 they report failure rather than
+guessing.
+
+The same hour is worth reading for what it says about the *other* link: **not a
+single unparseable line from the PA and not a single lost byte**, at 115200 over
+a shifter wired straight to the Pico's pins. The divider that would have sat in
+that path is discussed under the wiring, and this is the measurement that says
+avoiding it was worth the two extra wires.
 
 ## The mode is kept in flash
 
@@ -822,4 +832,4 @@ them in. Corrections belong upstream of this copy:
 
     https://github.com/jcmerg/esp32-juma
 
-Generated from v1.28.0-7-ge8d13d8.
+Generated from v1.28.0-7-ge8d13d8-dirty.
