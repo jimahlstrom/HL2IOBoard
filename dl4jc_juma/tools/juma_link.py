@@ -304,11 +304,19 @@ class Hl2Link:
     COOL_BASE = 1.0                 # doubles per consecutive failure
     COOL_MAX  = 8.0
 
-    def __init__(self, ip, port=CMD_PORT, settle=None, timeout=1.0):
+    # Both taken from n2adr_ioboard.pyw, which asks the same bridge the same
+    # way: HL.command(0x3d, cmd, sleep=0, timeout=0.5, attempts=2). Waiting a
+    # full second three times over made a dead link cost three seconds per
+    # command, and with poll() driving one command per tick that is three
+    # seconds the window spends not drawing.
+    TIMEOUT  = 0.5
+    ATTEMPTS = 2
+
+    def __init__(self, ip, port=CMD_PORT, settle=None, timeout=None):
         self.ip = ip
         self.port = port
         self.settle = self.SETTLE if settle is None else settle
-        self.timeout = timeout
+        self.timeout = self.TIMEOUT if timeout is None else timeout
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.setblocking(False)
@@ -316,6 +324,8 @@ class Hl2Link:
         self._mode_seen = 0
         self._fault_seen = 0
         self._last_gen = None
+        self._step = 0                   # poll(): 0 asks, 1..7 read a group
+        self._groups = [None] * SNAP_GROUPS
         self.rounds = 0          # snapshots asked for
         self.retries = 0         # times a set had to be read again
         self._cool_until = 0.0   # no packets before this
@@ -495,16 +505,23 @@ class Hl2Link:
             self.port = self._untried.pop(0)
             trace("no answer - trying port %d" % self.port)
 
+        # The shift is clamped, not just the result. COOL_MAX bounds what comes
+        # out of min(), but the multiplication happens first, and a radio that
+        # is away for half an hour gets there: at about one failure a second,
+        # 2 ** 1030 is an integer too large to turn into a float, and the
+        # OverflowError came out of a Tk callback and took the window with it.
+        # Measured the hard way - it ended an endurance run 31 minutes in and
+        # threw away everything after the one line that mattered.
         self._fails += 1
         self._cool_until = time.time() + min(
-            self.COOL_MAX, self.COOL_BASE * (2 ** (self._fails - 1)))
+            self.COOL_MAX, self.COOL_BASE * (2 ** min(self._fails - 1, 16)))
         raise LinkError("no answer from the HL2 at %s:%d%s"
                         % (self.ip, self.port, local_network_hint()))
 
     def _attempt(self, msg):
         """Send to self.port up to three times. The 60-byte reply, or None."""
         self._drain()
-        for _ in range(3):
+        for _ in range(self.ATTEMPTS):
             try:
                 self.sock.sendto(msg, (self.ip, self.port))
             except OSError as e:
@@ -533,28 +550,67 @@ class Hl2Link:
         return [d & 0xFF, (d >> 8) & 0xFF, (d >> 16) & 0xFF, (d >> 24) & 0xFF]
 
     def read_status(self, slow_fields=True):
-        """One picture of the PA, proved coherent.
+        """One picture of the PA, proved coherent, now - by driving poll() until
+        it has one.
 
-        Ask the firmware for a snapshot, then read the seven groups. Every group
-        carries the same tag, so a read the bridge dropped - which comes back as
-        an older group - shows up as a tag that does not match, and we try again.
-        Without this about one round in 25 is silently shifted; measured, not
-        feared.
+        For a caller that needs an answer before it can go on: testing a
+        remembered connection, a script that prints one line. A window should
+        use poll() instead, so the radio's bridge sees one command at a time.
 
         slow_fields is ignored here: a snapshot costs the same either way.
         """
-        self.rounds += 1
-        for attempt in range(3):
-            st = self._read_snapshot()
+        # rounds and retries are counted by poll(), which does the work.
+        # Enough turns for three full sets. A set is refused when the bridge
+        # dropped one of its reads, and about one in 25 is - three is the same
+        # allowance the burst version made.
+        for _ in range(3 * (SNAP_GROUPS + 1)):
+            st = self.poll()
             if st is not None:
                 return st
-            self.retries += 1
         raise LinkError("the HL2 keeps dropping reads - no coherent snapshot")
 
-    def _read_snapshot(self):
-        """One attempt. None when the groups did not agree."""
-        self.write(REG_SNAP, 1)
-        groups = [self.read4(SNAP_BASE + 4 * i) for i in range(SNAP_GROUPS)]
+    def poll(self):
+        """Advance by exactly ONE command. A Status when a set just completed.
+
+        This is the shape n2adr_ioboard.pyw uses, and the reason to copy it is
+        the bridge: the gateware drops what arrives while it is busy, including
+        its own write to the filter board, and it has no timeout and no bus
+        recovery. His tool has polled that bridge for years at one command per
+        100 ms round, never two in a row. Ours asked for a snapshot and then
+        read seven groups back to back - and on a set the bridge had torn, read
+        all eight again, up to 24 commands in one go. Same commands per second,
+        a completely different profile, and an endurance run here lost the bus
+        after 31 minutes of it.
+
+        Spreading the reads is safe: a snapshot is only retaken when REG_SNAP is
+        written again, so the generation cannot move underneath them. The stamps
+        still prove the whole set came out of one.
+        """
+        if self._step == 0:
+            self.write(REG_SNAP, 1)
+            self._groups = [None] * SNAP_GROUPS
+            self._step = 1
+            return None
+
+        i = self._step - 1
+        self._groups[i] = self.read4(SNAP_BASE + 4 * i)
+        self._step += 1
+        if self._step <= SNAP_GROUPS:
+            return None
+
+        self._step = 0
+        self.rounds += 1
+        st = self._finish(self._groups)
+        if st is None:
+            # The bridge tore this set: it dropped one of the reads, and the
+            # stamps caught it. Counted here because this is the direct measure
+            # of how busy the bridge is, and therefore the number to watch while
+            # finding out whether our polling is what costs the bus.
+            self.retries += 1
+        return st
+
+    def _finish(self, groups):
+        """A complete set of groups -> Status, or None when they disagree."""
         stamps = [g[0] for g in groups]
         if all(s == 0 for s in stamps):    # firmware without the snapshot block
             return self._read_direct()
@@ -799,6 +855,16 @@ class UsbLink:
     def read_status(self):
         self.pump()
         return self._st
+
+    def poll(self):
+        """The same call the bridge needs paced, on a cable that needs nothing.
+
+        Hl2Link.poll() spends one command per call because the radio's bridge is
+        shared. Here the port is ours, the firmware sends its line by itself,
+        and there is nothing to spread out - so a poll is just a read. Having
+        the method on both means the window asks the same question either way.
+        """
+        return self.read_status()
 
     # The register writes the firmware's console understands.
     def write(self, reg, value):

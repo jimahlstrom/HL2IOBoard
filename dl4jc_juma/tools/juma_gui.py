@@ -96,7 +96,12 @@ def set_icon(root):
     except (tk.TclError, OSError):
         pass            # an icon is nice, not necessary
 
-REFRESH_HL2_MS = 1000
+# One command per tick over the HL2's bridge, not a burst of eight every
+# second. Eight ticks make a full set, so the values still arrive about once a
+# second - but the bridge never sees two commands back to back, which is how
+# n2adr_ioboard.pyw has asked it for years. 150 ms also puts fewer commands per
+# second on it than the old burst did: 6.7 against 8.
+REFRESH_HL2_MS = 150
 REFRESH_USB_MS = 500
 ALARM_REPEAT_MS = 5000
 
@@ -151,6 +156,7 @@ class App:
         self.fails = 0          # consecutive failed reads
         self.busy = False       # the radio is streaming for somebody else
         self._link_ok = True    # last state written to the log, see _note_link
+        self._tally_at = time.time()
 
         self._build()
         self._apply_theme()
@@ -479,15 +485,37 @@ class App:
     # --- refresh ----------------------------------------------------------
     def _tick(self):
         try:
-            st = self.link.read_status()
+            # One command per tick over the radio's bridge, and a Status only
+            # once a whole set has come in. Over USB poll() is just a read -
+            # nothing there needs pacing.
+            st = self.link.poll()
             self.err.configure(text="")
-            self._show(st)
+            if st is not None:
+                self._show(st)
             self._note_link(True, "")
+            self._tally()
         except jl.LinkError as e:
             self.err.configure(text=str(e))
             self.state_lab.configure(text=self.t("nolink"), fg=self.pal["bad"])
             self._note_link(False, str(e))
         self.root.after(self.refresh, self._tick)
+
+    TALLY_S = 600
+
+    def _tally(self):
+        """Every ten minutes, how often the bridge tore a set.
+
+        Over a run of hours this is the number that matters: a set is refused
+        when the bridge dropped one of its reads, so the share of them is how
+        busy it is. If it climbs before the bus goes, that is a warning with a
+        time on it instead of a surprise.
+        """
+        if not self.is_hl2 or time.time() - self._tally_at < self.TALLY_S:
+            return
+        self._tally_at = time.time()
+        r, t = self.link.rounds, self.link.retries
+        say("%s  %d sets, %d torn (%.0f %%)"
+            % (time.strftime("%Y-%m-%d %H:%M:%S"), r, t, 100.0 * t / max(r, 1)))
 
     def _note_link(self, ok, why):
         """Put the coming and going of the link in the log, with the time.

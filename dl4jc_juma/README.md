@@ -840,4 +840,4 @@ from. Corrections belong there, not here:
 themselves copies, shared with an ESP32 firmware for the same amplifier so that
 the two agree about the bands. Host tests cover them in both places.
 
-Generated from 7aae342-dirty.
+Generated from 2cc047e.
