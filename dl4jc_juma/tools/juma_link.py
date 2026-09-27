@@ -107,6 +107,14 @@ class Status:
 
     def __init__(self):
         self.link = False          # the values below are fresh
+        # Only the USB route fills these, and only a firmware that reports
+        # them: what the I2C bus looks like from the Pico's own pins. The
+        # point of them is to be readable when that bus is dead.
+        self.i2c_writes = None     # register writes the Pico has seen
+        self.i2c_idle = None       # seconds since the last one
+        self.sda = None            # pad levels, 1 = idle high
+        self.scl = None
+        self.scl_low_ms = None     # how long SCL has been held low
         self.operate = False
         self.auto_sel = False      # the PA selects bands itself
         self.pa_tx = False
@@ -850,6 +858,13 @@ class UsbLink:
         st.badlines = int(fields.get("bad", b"0"))
         st.lost = int(fields.get("lost", b"0"))
         st.following = not (st.mode & MODE_NO_BAND)
+        # Absent in an older image, so left as None rather than guessed at.
+        if "sda" in fields:
+            st.i2c_writes = int(fields.get("wr", b"0"))
+            st.i2c_idle = int(fields.get("idle", b"0"))
+            st.sda = int(fields["sda"])
+            st.scl = int(fields.get("scl", b"1"))
+            st.scl_low_ms = int(fields.get("low", b"0"))
         return True
 
     def read_status(self):

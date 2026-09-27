@@ -125,6 +125,69 @@ static inline uint32_t now_ms(void)
 // option, and a host that wants something else writes REG_JUMA_MODE after
 // every start.
 
+// --- Is the bus still there? ----------------------------------------------
+// The expansion bus has died twice here: no register answered, the band stopped
+// following, the filter board stopped switching, and only a power cycle of the
+// HL2 brought it back. From the outside those look identical, but they are two
+// different faults and only one of them could ever be repaired from this side:
+//
+//   somebody holds a line down   - a classic jam. SCL or SDA stays low, and the
+//                                  cure is to clock SCL until the stuck device
+//                                  lets go. This board owns the pins, so it
+//                                  could do that.
+//   the master's state machine   - the gateware is waiting for something inside
+//   has stopped                    itself. The lines are idle and high, nothing
+//                                  is held, and no amount of clocking from out
+//                                  here resets logic in an FPGA. Only a reset
+//                                  of the radio helps.
+//
+// Telling them apart took a day of guessing, so measure it instead. What this
+// reports is facts, not a verdict:
+//
+//   sda, scl   the pad levels. gpio_get() reads the input whatever the function
+//              mux says, so this works while the pins belong to the I2C block.
+//              Both high with no traffic is the second case; a line low for
+//              hundreds of milliseconds is the first.
+//   low        how long SCL has been continuously low, in ms. During traffic at
+//              400 kHz it is never more than a couple of microseconds, so
+//              anything the 1 ms loop can even see is already wrong.
+//   wr, idle   register writes seen, and how long since the last one. Writes are
+//              all this can count: IrqHandler fires on a write, and a read by
+//              the host leaves no trace here. So 'idle' climbing does NOT prove
+//              the bus is gone - a station sitting on one frequency may simply
+//              have nothing to write. Read it together with sda/scl.
+//
+// None of it goes into a register. The whole point is to be readable when the
+// bus is dead, and that means the USB port.
+static volatile uint32_t i2c_writes  = 0;
+static volatile uint32_t last_i2c_ms = 0;
+static uint32_t scl_low_since = 0;      // 0 = SCL is not low
+static uint32_t scl_low_ms    = 0;
+
+// Hung on registers the two sides write in normal operation: the gateware puts
+// the transmit frequency in REG_TX_FREQ_BYTE0 last, and a host asking for a
+// snapshot writes REG_JUMA_SNAP.
+static void note_i2c_write(uint8_t reg, uint8_t data)
+{
+	(void)reg;
+	(void)data;
+	i2c_writes++;
+	last_i2c_ms = now_ms();
+}
+
+// Called once per pass. Two GPIO reads, no allocation, no branch worth counting.
+static void watch_bus(void)
+{
+	if (gpio_get(GPIO15_I2C1_SCL)) {
+		scl_low_since = 0;
+		scl_low_ms = 0;
+	} else {
+		if (!scl_low_since)
+			scl_low_since = now_ms();
+		scl_low_ms = now_ms() - scl_low_since;
+	}
+}
+
 // --- Receiving ------------------------------------------------------------
 // The interrupt handler only moves bytes into a ring buffer; the lines are
 // assembled and parsed in the main loop. Parsing in the handler would mean
@@ -609,12 +672,19 @@ static void telemetry(void)
 			raw[o++] = *c;
 	raw[o] = '\0';
 
+	const uint32_t last = last_i2c_ms;
 	printf("JUMA up=%lu link=%u mode=%02X fault=%02X want=%u "
-	       "rep=%lu bad=%lu lost=%u raw=%s\n",
+	       "rep=%lu bad=%lu lost=%u "
+	       "wr=%lu idle=%lu sda=%u scl=%u low=%lu raw=%s\n",
 	       (unsigned long)(now_ms() / 1000), online() ? 1u : 0u,
 	       Registers[REG_JUMA_MODE], Registers[REG_FAULT], want_band,
 	       (unsigned long)replies, (unsigned long)bad_lines,
-	       (unsigned)rx_lost, raw);
+	       (unsigned)rx_lost,
+	       (unsigned long)i2c_writes,
+	       (unsigned long)(last ? (now_ms() - last) / 1000 : 0),
+	       gpio_get(GPIO14_I2C1_SDA) ? 1u : 0u,
+	       gpio_get(GPIO15_I2C1_SCL) ? 1u : 0u,
+	       (unsigned long)scl_low_ms, raw);
 }
 
 // --- Status into the registers -------------------------------------------
@@ -878,6 +948,10 @@ int main(void)
 	Registers[REG_LPF_DETECT] = LPF_DETECT_MAGIC;
 	Registers[REG_LPF_STATUS] = 0;
 	IrqHandler[REG_CONTROL]  = on_control_written;
+	// See 'Is the bus still there?' above: the two registers the gateway
+	// and a host write in normal operation, used as a sign of life.
+	IrqHandler[REG_TX_FREQ_BYTE0] = note_i2c_write;
+	IrqHandler[REG_JUMA_SNAP]     = note_i2c_write;
 
 	int UART_IRQ = UART_ID == uart0 ? UART0_IRQ : UART1_IRQ;
 	irq_set_exclusive_handler(UART_IRQ, on_uart_rx);
@@ -903,6 +977,7 @@ int main(void)
 #endif
 		}
 
+		watch_bus();
 		drain_rx();
 		run_command();
 		run_setters();

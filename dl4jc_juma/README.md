@@ -675,7 +675,7 @@ at any time, in any image — the firmware puts one line per second on the USB
 serial port:
 
 ```
-JUMA up=312 link=1 mode=06 fault=00 want=5 rep=624 bad=0 lost=0 raw=O:A:T:C:5:1:1.0:14.09:8.1:27.2:26:0:0
+JUMA up=312 link=1 mode=06 fault=00 want=5 rep=624 bad=0 lost=0 wr=91 idle=0 sda=1 scl=1 low=0 raw=O:A:T:C:5:1:1.0:14.09:8.1:27.2:26:0:0
 ```
 
 Space separated `key=value`, so a program reads it with a `split()`. The fields
