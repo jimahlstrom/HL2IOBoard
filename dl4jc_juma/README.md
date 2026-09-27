@@ -645,6 +645,42 @@ a shifter wired straight to the Pico's pins. The divider that would have sat in
 that path is discussed under the wiring, and this is the measurement that says
 avoiding it was worth the two extra wires.
 
+## The one rule this firmware has to keep
+
+**Never disable interrupts, and never write flash.**
+
+The Pico is an I2C **slave** on the radio's expansion bus. A slave that cannot
+answer in time does not simply fall behind — the hardware pulls SCL low and
+holds it, which is exactly what I2C asks it to do. It means "wait", and the
+master must. The line comes back up when the interrupt handler runs.
+
+So anything that keeps that handler from running hands the whole bus a brake:
+
+    save_and_disable_interrupts()   flash_range_erase()   flash_range_program()
+    critical sections, long ISRs, anything busy-waiting with interrupts masked
+
+And the master on the other end has nothing to get out with. The gateware drops
+whatever arrives while it is busy (`i2c_bus2.v`, `// Missed`), does not even wire
+up the bridge's acknowledge line (`hermeslite_core.v`, `.cmd_ack() // No need for
+ack`), and has neither a timeout nor a bus recovery. Measured here: once that
+master stops, it stays stopped for **hours** — 7.7 of them in one case — and only
+a power cycle of the radio brings it back. The filter board sits on the same bus
+with its own address, so its relays stop switching too. From the outside the
+whole radio looks broken.
+
+A flash write cost tens of milliseconds of that, which is why the mode is no
+longer kept (below). As of this writing the firmware holds the rule: `sleep_ms(1)`
+paces the loop and nothing masks an interrupt anywhere. `printf` to the USB port
+can block the main loop for up to 10 ms, but interrupts stay on and the I2C
+handler keeps running, so that is fine.
+
+Worth checking before adding anything that touches flash, timing or a critical
+section:
+
+    grep -n 'save_and_disable_interrupts\|critical_section\|flash_range' main.cpp
+
+Empty is the correct answer.
+
 ## The mode is not kept
 
 `REG_JUMA_MODE` comes up as the compiled `JUMA_MODE_AT_BOOT` and stays in RAM. A
