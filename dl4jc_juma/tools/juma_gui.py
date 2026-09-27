@@ -717,10 +717,16 @@ class Connect(tk.Frame):
         self.master.quit()
 
 
-def try_saved(cfg, settle=None):
-    """What worked last time, if it still does."""
+def try_saved(cfg, settle=None, allow_usb=True):
+    """What worked last time, if it still does.
+
+    allow_usb is what --no-usb turns off. Without it the flag only kept the
+    search for a cable from running, and a remembered USB connection still
+    won - so a run meant to put load on the HL2's bridge could quietly go
+    over the cable instead and measure nothing.
+    """
     try:
-        if cfg.get("kind") == "usb" and cfg.get("usb"):
+        if allow_usb and cfg.get("kind") == "usb" and cfg.get("usb"):
             return jl.UsbLink(cfg["usb"])
         if cfg.get("hl2"):
             link = jl.Hl2Link(cfg["hl2"], cfg.get("port") or jl.CMD_PORT, settle=settle)
@@ -757,14 +763,21 @@ def open_link(args, cfg):
             say("a Pico is on USB but did not answer - trying the network")
 
     say("local addresses: %s" % (jl.Hl2Link.local_addresses() or "none"))
-    if cfg.get("hl2") or cfg.get("usb"):
-        say("trying the remembered %s" % (cfg.get("usb") or
-                                          "%s:%s" % (cfg.get("hl2"), cfg.get("port"))))
-    link = try_saved(cfg, args.settle)
+    # What try_saved() will actually reach for, which is decided by 'kind' -
+    # not whichever of the two addresses happens to still be in the file. Both
+    # are kept, so naming the USB port while the network is tried is exactly
+    # the kind of thing a log is read to rule out.
+    usb_saved = (not args.no_usb and cfg.get("kind") == "usb"
+                 and cfg.get("usb"))
+    remembered = cfg["usb"] if usb_saved else (
+        "%s:%s" % (cfg.get("hl2"), cfg.get("port")) if cfg.get("hl2") else None)
+    if remembered:
+        say("trying the remembered %s" % remembered)
+    link = try_saved(cfg, args.settle, allow_usb=not args.no_usb)
     if link:
         say("connected to %s" % link.describe())
         return link
-    if cfg.get("hl2") or cfg.get("usb"):
+    if remembered:
         say("  that did not answer")
 
     say("searching the network …")
