@@ -52,7 +52,6 @@ REG_JUMA_WATTS10_MSB = 0x58
 REG_JUMA_SWR100_MSB = 0x5A
 REG_JUMA_BANNER_IDX = 0x5C
 REG_JUMA_BANNER_CH = 0x5D
-REG_JUMA_SAVED = 0x5E
 REG_SNAP = 0x5F
 SNAP_BASE = 0x60
 SNAP_GROUPS = 7
@@ -172,6 +171,25 @@ def parse_pa_line(line, st):
     return True
 
 
+# Port 1025, and that is not a guess: the maintainer's own tool goes out of its
+# way to avoid 1024. n2adr_ioboard.pyw replaces the discovery function wholesale
+#
+#     def no_port_1024_discover(ifaddr=None, verbose=2):
+#       return hermeslite.discover_by_port(ifaddr, 1025, verbose)
+#     hermeslite.discover = no_port_1024_discover
+#
+# and connects to a known address the same way, (ip, 1025). The name says the
+# intent. 1024 is where the SDR software's data stream lives, and a second
+# program on it is a second program in the way.
+#
+# Both ports answer discovery - measured on a gateware 74.2, a datagram sent to
+# 1024 is answered FROM 1025 - so the reply's source port cannot settle it
+# either. 1025 is tried first and 1024 after it, and whichever answers is kept
+# for the session, so a radio that wants the other one still works.
+CMD_PORT = 1025          # what a link uses when nobody says otherwise
+PORTS = (1025, 1024)     # everything worth trying, in the order to try it
+
+
 class Radio(collections.namedtuple("Radio", "ip port mac gateware")):
     """One Hermes Lite 2 that answered.
 
@@ -191,6 +209,9 @@ def decode_discovery(data, addr):
         return None
     mac = "%02x:%02x:%02x:%02x:%02x:%02x" % struct.unpack("BBBBBB", data[3:9])
     gateware = "%d.%d" % (data[0x09], data[0x15])
+    # addr[1] is the port the reply came from, which is where this radio has a
+    # socket open - the first thing worth trying, not the last word. Hl2Link
+    # falls back to the others if it stays silent.
     return Radio(addr[0], addr[1], mac, gateware)
 
 
@@ -271,7 +292,19 @@ class Hl2Link:
     # a transmitter to run.
     SETTLE = 0.02
 
-    def __init__(self, ip, port=1024, settle=None, timeout=1.0):
+    # After a command goes unanswered, leave the bridge alone for a while
+    # instead of coming straight back. A silent bridge means it is busy with
+    # the radio's own traffic, and the gateware drops what arrives while it is
+    # busy - including its own write to the filter board. Asking harder at that
+    # moment is the one thing that cannot help.
+    #
+    # It also shortens a failed round from seconds to nothing: the first
+    # command pays the retries, the rest of the round is refused without a
+    # packet, and the window says so instead of freezing while it waits.
+    COOL_BASE = 1.0                 # doubles per consecutive failure
+    COOL_MAX  = 8.0
+
+    def __init__(self, ip, port=CMD_PORT, settle=None, timeout=1.0):
         self.ip = ip
         self.port = port
         self.settle = self.SETTLE if settle is None else settle
@@ -285,6 +318,11 @@ class Hl2Link:
         self._last_gen = None
         self.rounds = 0          # snapshots asked for
         self.retries = 0         # times a set had to be read again
+        self._cool_until = 0.0   # no packets before this
+        self._fails = 0          # consecutive unanswered commands
+        # Ports still worth trying, the one asked for first. Emptied by the
+        # first answer, so the search happens once per link and not per command.
+        self._untried = [p for p in PORTS if p != self.port]
 
     @staticmethod
     def local_addresses():
@@ -320,7 +358,7 @@ class Hl2Link:
         """
         found = []
         sources = [None] + Hl2Link.local_addresses()
-        for port in (1025, 1024):
+        for port in PORTS:
             for src in sources:
                 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -383,7 +421,7 @@ class Hl2Link:
         found = []
         for src in Hl2Link.local_addresses():
             net = src.rsplit(".", 1)[0]
-            for port in (1025, 1024):
+            for port in PORTS:
                 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 s.setblocking(False)
@@ -435,7 +473,36 @@ class Hl2Link:
 
     def _command(self, cmd4):
         """Send one command packet and return its 60-byte response."""
+        left = self._cool_until - time.time()
+        if left > 0:
+            raise LinkError("the HL2 did not answer - leaving the bridge alone "
+                            "for another %.1f s" % left)
+
         msg = bytes([0xEF, 0xFE, 0x05, 0x7F, self.CMD_BUS2 << 1]) + cmd4 + bytes(51)
+
+        # The port asked for first, then the ones not tried yet. Only the first
+        # pass pays for this: an answer empties the list.
+        while True:
+            data = self._attempt(msg)
+            if data is not None:
+                self._fails = 0
+                self._cool_until = 0.0
+                self._untried = []
+                time.sleep(self.settle)
+                return data
+            if not self._untried:
+                break
+            self.port = self._untried.pop(0)
+            trace("no answer - trying port %d" % self.port)
+
+        self._fails += 1
+        self._cool_until = time.time() + min(
+            self.COOL_MAX, self.COOL_BASE * (2 ** (self._fails - 1)))
+        raise LinkError("no answer from the HL2 at %s:%d%s"
+                        % (self.ip, self.port, local_network_hint()))
+
+    def _attempt(self, msg):
+        """Send to self.port up to three times. The 60-byte reply, or None."""
         self._drain()
         for _ in range(3):
             try:
@@ -449,10 +516,8 @@ class Hl2Link:
             if select.select([self.sock], [], [], self.timeout)[0]:
                 data, addr = self.sock.recvfrom(60)
                 if len(data) == 60 and data[0:2] == b"\xef\xfe":
-                    time.sleep(self.settle)
                     return data
-        raise LinkError("no answer from the HL2 at %s:%d%s"
-                        % (self.ip, self.port, local_network_hint()))
+        return None
 
     def write(self, reg, value):
         self._command(bytes([self.OP_WRITE, 0x80 | self.I2C_ADDR,
@@ -612,6 +677,55 @@ class UsbLink:
     defaults.
     """
 
+    # The Pico's USB identity. Raspberry Pi's vendor id; the product id is
+    # whatever the SDK's stdio_usb hands out, so only the vendor is matched.
+    # Matching it is what keeps a probe off a GPS or a modem: those get neither
+    # an open nor a written line.
+    PICO_VID = 0x2E8A
+
+    @staticmethod
+    def ports():
+        """Serial ports that could be a Pico running this firmware."""
+        try:
+            from serial.tools import list_ports
+        except ImportError:
+            return []
+        out = []
+        for p in list_ports.comports():
+            if getattr(p, "vid", None) == UsbLink.PICO_VID:
+                out.append(p.device)
+        return out
+
+    @staticmethod
+    def find(timeout=2.5):
+        """The first port that answers as this firmware, or None.
+
+        Worth preferring over the HL2's I2C bridge whenever the cable is there:
+        the bridge is shared with the radio's own traffic, and every command
+        that goes over it is a command the gateware's filter board write can be
+        dropped behind. Over USB the watching costs the bus nothing.
+
+        The proof asked for is a telemetry line. An open alone proves nothing -
+        any CDC device opens - and the firmware may have come up in proxy mode,
+        which the constructor steps out of.
+        """
+        for dev in UsbLink.ports():
+            link = None
+            try:
+                link = UsbLink(dev)
+                end = time.time() + timeout
+                while time.time() < end:
+                    link.pump()
+                    if link.saw_firmware:
+                        trace("USB: %s answered" % dev)
+                        return link
+                trace("USB: %s opened but said nothing in %.1f s" % (dev, timeout))
+            except (LinkError, OSError) as e:
+                trace("USB: %s - %s" % (dev, e))
+            if link:
+                link.close()
+        return None
+
     def __init__(self, port, baud=115200, timeout=0.2):
         try:
             import serial
@@ -620,6 +734,9 @@ class UsbLink:
         self.ser = serial.Serial(port, baud, timeout=timeout)
         self.port = port
         self._st = Status()
+        # Set by _take_telemetry(): a line only this firmware sends. find()
+        # waits for it rather than trusting that the port opened.
+        self.saw_firmware = False
         # Ask for the telemetry feed, and step out of proxy mode if the image
         # came up in it - but with '+' and '-', so that whatever else the mode
         # holds, the OPERATE hold in particular, is left alone.
@@ -650,6 +767,7 @@ class UsbLink:
         return changed
 
     def _take_telemetry(self, line):
+        self.saw_firmware = True
         fields = {}
         for kv in line.split()[1:]:
             if b"=" in kv:

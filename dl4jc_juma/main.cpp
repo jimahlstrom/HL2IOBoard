@@ -39,8 +39,6 @@
 #include <hardware/pwm.h>
 #include <hardware/adc.h>
 #include <hardware/uart.h>
-#include <hardware/flash.h>
-#include <hardware/sync.h>
 #include <pico/i2c_slave.h>
 #include <pico/binary_info.h>
 #include <pico/stdlib.h>
@@ -113,67 +111,19 @@ static inline uint32_t now_ms(void)
 	return to_ms_since_boot(get_absolute_time());
 }
 
-// --- Remembering the mode -------------------------------------------------
-// The registers are RAM and come up zero, so without this a mode the operator
-// set - the OPERATE hold above all - would be gone at the next power-up, and
-// getting it back would mean opening the box to reflash. The last flash sector
-// holds it instead.
+// --- The mode at power-up -------------------------------------------------
+// It is not kept. Storing it meant erasing a flash sector, and an erase runs
+// with interrupts off for tens of milliseconds - during which the I2C slave
+// cannot be served, so the RP2040 holds SCL low. The HL2's master has no
+// timeout and no bus recovery (i2c_bus2.v, and hermeslite_core.v does not even
+// wire up the acknowledge line), and the filter board sits on that same
+// expansion bus with its own address. One erase in the wrong moment can
+// therefore take the whole bus down, filter relays included.
 //
-// Writing flash means erasing a whole sector with interrupts off, which takes
-// tens of milliseconds. During that the UART interrupt does not run and the
-// receive FIFO (32 bytes, 2.7 ms at 115200) overflows, so a status line is lost.
-// That is why it only happens when the mode has really changed, has then stood
-// still for a while, and the PA is not transmitting.
-#define SAVE_MAGIC   0x4A554D41u        // 'JUMA'
-#define SAVE_OFFSET  (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE)
-static const uint32_t SAVE_SETTLE_MS = 3000;
-
-struct Saved {
-	uint32_t magic;
-	uint8_t  version;
-	uint8_t  mode;
-	uint8_t  pad[2];
-	uint32_t check;                 // magic ^ version ^ mode, so a half
-};                                      // written page cannot read as valid
-
-static uint8_t  saved_mode   = 0;       // what is in flash now
-static bool     saved_valid  = false;
-static uint32_t mode_changed_at = 0;
-static uint8_t  mode_last    = 0;
-
-static bool save_load(uint8_t *mode)
-{
-	const Saved *f = (const Saved *)(XIP_BASE + SAVE_OFFSET);
-	if (f->magic != SAVE_MAGIC || f->version != 1)
-		return false;
-	if (f->check != (SAVE_MAGIC ^ f->version ^ f->mode))
-		return false;
-	*mode = f->mode;
-	return true;
-}
-
-static void save_store(uint8_t mode)
-{
-	// A whole page, because that is the smallest unit flash_range_program
-	// takes, and it has to be aligned - hence the static buffer.
-	static uint8_t page[FLASH_PAGE_SIZE] __attribute__((aligned(4)));
-	Saved *rec = (Saved *)page;
-
-	memset(page, 0xFF, sizeof(page));
-	rec->magic   = SAVE_MAGIC;
-	rec->version = 1;
-	rec->mode    = mode;
-	rec->pad[0]  = rec->pad[1] = 0;
-	rec->check   = SAVE_MAGIC ^ 1u ^ mode;
-
-	uint32_t ints = save_and_disable_interrupts();
-	flash_range_erase(SAVE_OFFSET, FLASH_SECTOR_SIZE);
-	flash_range_program(SAVE_OFFSET, page, FLASH_PAGE_SIZE);
-	restore_interrupts(ints);
-
-	saved_mode  = mode;
-	saved_valid = true;
-}
+// A mode that survives a power cycle is a convenience; a wedged I2C bus costs
+// the station. So the mode comes up as JUMA_MODE_AT_BOOT, which is a build
+// option, and a host that wants something else writes REG_JUMA_MODE after
+// every start.
 
 // --- Receiving ------------------------------------------------------------
 // The interrupt handler only moves bytes into a ring buffer; the lines are
@@ -570,36 +520,6 @@ static void run_setters(void)
 	}
 }
 
-// Watch REG_JUMA_MODE and put it in flash once it has settled.
-static void save_mode_if_settled(void)
-{
-	uint8_t mode = Registers[REG_JUMA_MODE];
-
-	if (mode != mode_last) {
-		mode_last = mode;
-		mode_changed_at = now_ms();
-		return;
-	}
-	if (!mode_changed_at)                       // nothing has changed since boot
-		return;
-	if (now_ms() - mode_changed_at < SAVE_SETTLE_MS)
-		return;
-	if (saved_valid && saved_mode == mode) {    // already in flash
-		mode_changed_at = 0;
-		return;
-	}
-	// Not in the middle of a transmission: the erase stops the receive
-	// interrupt for tens of milliseconds, and that is not the moment.
-	if (transmitting())
-		return;
-
-	save_store(mode);
-	mode_changed_at = 0;
-#if JUMA_DEBUG
-	printf("mode %02X saved to flash\n", mode);
-#endif
-}
-
 // Defined with publish() below, which is where the rest of the scaling lives.
 static uint16_t scale(float v, float f);
 
@@ -780,8 +700,6 @@ static void publish(void)
 		(bi == 0) ? banner_len :
 		(bi <= banner_len) ? (uint8_t)banner[bi - 1] : 0;
 
-	Registers[REG_JUMA_SAVED] = saved_valid ? 1 : 0;
-
 	// REG_FAULT is a bit field here. JUMA_FAULT_BAD_CMD is set by
 	// run_command() and stays until the host resets the registers.
 	uint8_t fault = Registers[REG_FAULT] & JUMA_FAULT_BAD_CMD;
@@ -953,16 +871,7 @@ int main(void)
 	uart_set_format(UART_ID, DATA_BITS, STOP_BITS, PARITY);
 	uart_set_fifo_enabled(UART_ID, true);
 
-	// A mode kept from last time wins over the one built in: it is what the
-	// operator chose, and the built-in value is only the state of a board that
-	// has never been told anything.
-	uint8_t boot_mode = JUMA_MODE_AT_BOOT;
-	if (save_load(&saved_mode)) {
-		saved_valid = true;
-		boot_mode = saved_mode;
-	}
-	Registers[REG_JUMA_MODE] = boot_mode;
-	mode_last = boot_mode;
+	Registers[REG_JUMA_MODE] = JUMA_MODE_AT_BOOT;
 
 	// Let the SDR software recognise the board, or it will not send the
 	// transmit frequency at all and nothing downstream of it can work.
@@ -983,13 +892,8 @@ int main(void)
 			// The library has just zeroed every register, new_tx_freq
 			// included. Put our default back and start over, so the
 			// retry counters do not carry a state that no longer exists.
-			// 'Power-up condition' now means what is in flash, if
-			// anything is - the same thing a real power cycle gives.
 			Registers[REG_LPF_DETECT] = LPF_DETECT_MAGIC;
-			Registers[REG_JUMA_MODE] =
-				saved_valid ? saved_mode : (uint8_t)JUMA_MODE_AT_BOOT;
-			mode_last = Registers[REG_JUMA_MODE];
-			mode_changed_at = 0;
+			Registers[REG_JUMA_MODE] = JUMA_MODE_AT_BOOT;
 			tx_freq = 0;
 			want_band = 0;
 			force_m_tries = 0;
@@ -1016,7 +920,6 @@ int main(void)
 		pump_queue();
 		publish();
 		take_snapshot();		// after publish(), which fills what it copies
-		save_mode_if_settled();
 		telemetry();
 		usb_console();
 	}

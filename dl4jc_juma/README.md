@@ -386,16 +386,17 @@ the host knows the registers.
 
 | Build | For |
 |---|---|
-| `cmake -DJUMA_HOLD_OPERATE=ON -DJUMA_TELEMETRY=ON ..` | normal operation, and what `juma_gui.py` expects over USB |
-| `… -DJUMA_PROXY=ON` instead of `-DJUMA_TELEMETRY=ON` | the USB port is the PA's serial port from power-up, for software that already speaks JUMA |
+| `cmake ..` | out of the box: follows the band, holds the PA in OPERATE, and says once a second on USB what it and the amplifier are doing |
+| `… -DJUMA_HOLD_OPERATE=OFF` | leave a STANDBY standing — for a board that is only meant to watch and follow |
+| `… -DJUMA_PROXY=ON -DJUMA_TELEMETRY=OFF` | the USB port is the PA's serial port from power-up, for software that already speaks JUMA |
 | `… -DJUMA_DEBUG=ON` as well | the bench: every line, every command, every state change |
 
-| Option | |
-|---|---|
-| `JUMA_HOLD_OPERATE` | put the PA back into OPERATE when it drops to STANDBY — three tries, 5 s apart, never while an alarm is latched, and the counter is reset by every band command, because a band change knocking it out is expected |
-| `JUMA_TELEMETRY` | one status line per second on USB |
-| `JUMA_PROXY` | the USB port carries the PA's serial traffic verbatim |
-| `JUMA_DEBUG` | the trace, and leave it off together with `JUMA_PROXY` — a trace line is something the PA would never say |
+| Option | Default | |
+|---|---|---|
+| `JUMA_TELEMETRY` | **ON** | one status line per second on USB. On by default because it answers "is this thing running" with a terminal and nothing else, which is the first question anybody has — and because `juma_gui.py` reads that line over USB |
+| `JUMA_HOLD_OPERATE` | **ON** | put the PA back into OPERATE when it drops to STANDBY — three tries, 5 s apart, never while an alarm is latched, and the counter is reset by every band command, because a band change knocking it out is expected |
+| `JUMA_PROXY` | OFF | the USB port carries the PA's serial traffic verbatim. It suppresses the telemetry line, and everything typed at the port reaches the amplifier, so it is something to ask for rather than to be given |
+| `JUMA_DEBUG` | OFF | the trace, and leave it off together with `JUMA_PROXY` — a trace line is something the PA would never say |
 
 The same defaults are restored when the host resets the board (a write of 1 to
 `REG_CONTROL`), along with the firmware's own retry counters and the frequency it
@@ -487,7 +488,6 @@ address given, so related values sit next to each other.
 | 0x5A–0x5B | `REG_JUMA_SWR100_*` | VSWR × 100, 16 bit |
 | 0x5C | `REG_JUMA_BANNER_IDX` | rw — which character of the PA's power-up banner to look at; 0 asks for its length |
 | 0x5D | `REG_JUMA_BANNER_CH` | that character, or the length at index 0 |
-| 0x5E | `REG_JUMA_SAVED` | 1 = the mode came out of flash |
 | 0x5F | `REG_JUMA_SNAP` | wo — write anything to take a snapshot, see below |
 | 0x60–0x7B | snapshot | seven stamped groups of four, see below |
 
@@ -645,21 +645,27 @@ a shifter wired straight to the Pico's pins. The divider that would have sat in
 that path is discussed under the wiring, and this is the measurement that says
 avoiding it was worth the two extra wires.
 
-## The mode is kept in flash
+## The mode is not kept
 
-`REG_JUMA_MODE` is written to the last flash sector three seconds after it
-changes — not at once, so a run of clicks costs one write, and never while the
-PA is transmitting, because the erase runs with interrupts off for tens of
-milliseconds and the receive FIFO only covers 2.7 ms at 115200.
+`REG_JUMA_MODE` comes up as the compiled `JUMA_MODE_AT_BOOT` and stays in RAM. A
+host that wants something else writes it after every start; a host reset
+(`REG_CONTROL` = 1) puts the compiled value back.
 
-A mode kept from last time wins over the one built in: it is what the operator
-chose, and the compiled value only describes a board that has never been told
-anything. `REG_JUMA_SAVED` says which of the two you are looking at. A host
-reset (`REG_CONTROL` = 1) restores the saved mode, not the compiled one — the
-same thing a power cycle gives.
+It used to be written to the last flash sector, and that is out for one reason:
+an erase runs with interrupts off for tens of milliseconds, and during that the
+Pico cannot serve its I2C slave, so the RP2040 holds SCL low. The HL2's master
+has no timeout and no bus recovery — `i2c_bus2.v`, and `hermeslite_core.v` does
+not even wire up the acknowledge line — and the filter board sits on that same
+expansion bus with its own address (`HL2IOBoard/README.md`: the Pico's 0x1D is
+"distinct from the filter board I2C address"). One erase in the wrong moment can
+take the whole bus down, filter relays included. Seen here: nothing on the
+expansion bus answered any more, and only a power cycle of the HL2 brought it
+back - the SDR software, the Pico and the PA were all innocent and all looked
+guilty.
 
-This is what makes the OPERATE hold, the proxy and the telemetry feed settings
-rather than build options. Once the board is in the box, that matters.
+A mode that survives a power cycle is a convenience. A wedged I2C bus costs the
+station. So the OPERATE hold, the proxy and the telemetry feed are build options
+again, or something the host sets each time.
 
 
 ## Telemetry on the USB port
@@ -832,4 +838,4 @@ them in. Corrections belong upstream of this copy:
 
     https://github.com/jcmerg/esp32-juma
 
-Generated from v1.28.0-7-ge8d13d8-dirty.
+Generated from v1.28.0-13-g350d9f3.

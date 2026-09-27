@@ -48,6 +48,5 @@ target_link_libraries(main
 	hardware_pwm
 	hardware_uart
 	hardware_adc
-	hardware_flash
 	pico_i2c_slave
 	${PROJECT_SOURCE_DIR}/../n2adr_lib/build/libhl2ioboard.a)

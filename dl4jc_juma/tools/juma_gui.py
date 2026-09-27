@@ -600,7 +600,7 @@ class Connect(tk.Frame):
 
         lab(th.L[lang]["connPort"]).grid(row=2, column=0, sticky="w")
         self.e_port = tk.Entry(self, width=8, font=th.FONT_S)
-        self.e_port.insert(0, str(cfg.get("port") or 1024))
+        self.e_port.insert(0, str(cfg.get("port") or jl.CMD_PORT))
         self.e_port.grid(row=2, column=1, sticky="w", padx=6)
 
         lab(th.L[lang]["connUsb"]).grid(row=3, column=0, sticky="w", pady=(8, 0))
@@ -685,7 +685,7 @@ class Connect(tk.Frame):
                 link = jl.UsbLink(usb)
                 remember(self.cfg, "usb", usb)
             elif ip:
-                port = int(self.e_port.get().strip() or 1024)
+                port = int(self.e_port.get().strip() or jl.CMD_PORT)
                 link = jl.Hl2Link(ip, port)
                 link.read_status()          # prove it before closing the dialog
                 remember(self.cfg, "hl2", ip, port)
@@ -705,7 +705,7 @@ def try_saved(cfg, settle=None):
         if cfg.get("kind") == "usb" and cfg.get("usb"):
             return jl.UsbLink(cfg["usb"])
         if cfg.get("hl2"):
-            link = jl.Hl2Link(cfg["hl2"], cfg.get("port") or 1024, settle=settle)
+            link = jl.Hl2Link(cfg["hl2"], cfg.get("port") or jl.CMD_PORT, settle=settle)
             link.read_status()
             return link
     except (jl.LinkError, OSError):
@@ -714,7 +714,8 @@ def try_saved(cfg, settle=None):
 
 
 def open_link(args, cfg):
-    """Command line first, then the remembered address, then a broadcast.
+    """Command line first, then a USB cable, then the remembered address,
+    then a broadcast.
 
     Says out loud what it tried. Started from an icon this goes to the
     launcher's log, and it is the only way to tell a radio that is switched off
@@ -724,6 +725,18 @@ def open_link(args, cfg):
         return jl.UsbLink(args.usb)
     if args.hl2:
         return jl.Hl2Link(args.hl2, args.port, settle=args.settle)
+
+    # Before the remembered address, not after it: the point of preferring the
+    # cable is to keep the HL2's I2C bridge free, and a remembered address would
+    # otherwise win every time the cable happens to be plugged in.
+    if not args.no_usb:
+        link = jl.UsbLink.find()
+        if link:
+            say("connected over USB: %s" % link.port)
+            remember(cfg, "usb", link.port)
+            return link
+        if jl.UsbLink.ports():
+            say("a Pico is on USB but did not answer - trying the network")
 
     say("local addresses: %s" % (jl.Hl2Link.local_addresses() or "none"))
     if cfg.get("hl2") or cfg.get("usb"):
@@ -794,7 +807,10 @@ def main():
         return 1
     ap = argparse.ArgumentParser(description="JUMA PA control via the HL2 IO board")
     ap.add_argument("--hl2", metavar="IP", help="the Hermes Lite 2's address")
-    ap.add_argument("--port", type=int, default=1024, help="its command port")
+    ap.add_argument("--port", type=int, default=jl.CMD_PORT,
+                    help="its command port")
+    ap.add_argument("--no-usb", action="store_true",
+                    help="do not look for a Pico on USB, go over the HL2")
     ap.add_argument("--usb", metavar="DEV", help="the Pico's serial port instead")
     ap.add_argument("--settle", type=float, default=None,
                     help="seconds between commands to the HL2 (default %.3f)"
