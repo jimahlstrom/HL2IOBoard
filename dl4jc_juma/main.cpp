@@ -153,9 +153,15 @@ static inline uint32_t now_ms(void)
 //              anything the 1 ms loop can even see is already wrong.
 //   wr, idle   register writes seen, and how long since the last one. Writes are
 //              all this can count: IrqHandler fires on a write, and a read by
-//              the host leaves no trace here. So 'idle' climbing does NOT prove
-//              the bus is gone - a station sitting on one frequency may simply
-//              have nothing to write. Read it together with sda/scl.
+//              the host leaves no trace here. In principle that makes 'idle'
+//              weaker than it looks - a station sitting on one frequency might
+//              have nothing to write. Measured on a gateware 74.2 it does not
+//              work out that way: the radio rewrites the transmit frequency
+//              about 2.5 times a second whether it changed or not, with no
+//              software on the bridge at all. So on this radio 'idle' does climb
+//              when the bus dies. On another one, check 'wr' moves before
+//              trusting it, and read sda/scl either way - those are never
+//              ambiguous.
 //
 // None of it goes into a register. The whole point is to be readable when the
 // bus is dead, and that means the USB port.
