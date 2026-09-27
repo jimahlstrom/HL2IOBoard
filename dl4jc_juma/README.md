@@ -829,15 +829,23 @@ For the JUMA side, the issues of this repository.
 Written by **DL4JC**, <mail@dl4jc.de>, on a PA-100D and a Hermes Lite 2.
 ---
 
-## Where this comes from
+## The two copied files
 
-This folder is generated, by `tools/make_upstream.py` in the repository it comes
-from. Corrections belong there, not here:
+`juma_status.cpp` and `bands.cpp` — the status parser and the band table — are
+copies. The originals live in `src/` of
+[esp32-juma](https://github.com/jcmerg/esp32-juma), a controller for the same
+amplifier built on an ESP32 instead of a Hermes Lite 2. They describe the
+**amplifier**, not either controller, so the two have to agree about them: a band
+edge corrected in one place and not the other means they disagree about what band
+the PA is on, on the air.
 
-    https://github.com/jcmerg/hl2io-juma
+They are byte for byte identical on purpose, because that is what makes the copy
+checkable:
 
-`juma_status.cpp` and `bands.cpp` - the status parser and the band table - are
-themselves copies, shared with an ESP32 firmware for the same amplifier so that
-the two agree about the bands. Host tests cover them in both places.
+    python3 tools/sync_shared.py            # report, non-zero on a difference
+    python3 tools/sync_shared.py --update   # take the originals
+    ./tests/run.sh                          # and check they still behave
 
-Generated from 2cc047e.
+So neither is edited here, not even a comment about where it came from.
+Corrections belong in esp32-juma and come back with `--update`. Everything else
+in this folder is maintained here.

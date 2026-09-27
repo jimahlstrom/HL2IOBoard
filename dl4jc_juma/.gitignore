@@ -1,0 +1,10 @@
+# The build tree is local; the built firmware is not - every other folder in
+# this project carries its main.uf2, so somebody can flash it without a
+# toolchain.
+build/*
+!build/main.uf2
+tools/__pycache__/
+tools/.venv/
+tools/build/
+tools/dist/
+.DS_Store
