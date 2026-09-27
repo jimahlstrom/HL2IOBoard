@@ -831,11 +831,13 @@ Written by **DL4JC**, <mail@dl4jc.de>, on a PA-100D and a Hermes Lite 2.
 
 ## Where this comes from
 
-This folder is generated. `juma_status.cpp` and `bands.cpp` - the status parser
-and the band table - are shared with an ESP32 firmware for the same amplifier,
-where they are also covered by host tests, and `make_upstream.py` there copies
-them in. Corrections belong upstream of this copy:
+This folder is generated, by `tools/make_upstream.py` in the repository it comes
+from. Corrections belong there, not here:
 
-    https://github.com/jcmerg/esp32-juma
+    https://github.com/jcmerg/hl2io-juma
 
-Generated from v1.28.0-16-g9c6354f.
+`juma_status.cpp` and `bands.cpp` - the status parser and the band table - are
+themselves copies, shared with an ESP32 firmware for the same amplifier so that
+the two agree about the bands. Host tests cover them in both places.
+
+Generated from 7aae342-dirty.
