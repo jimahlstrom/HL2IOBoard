@@ -838,4 +838,4 @@ them in. Corrections belong upstream of this copy:
 
     https://github.com/jcmerg/esp32-juma
 
-Generated from v1.28.0-13-g350d9f3.
+Generated from v1.28.0-15-gebd114c.

@@ -150,6 +150,7 @@ class App:
         self.buttons = []
         self.fails = 0          # consecutive failed reads
         self.busy = False       # the radio is streaming for somebody else
+        self._link_ok = True    # last state written to the log, see _note_link
 
         self._build()
         self._apply_theme()
@@ -481,10 +482,27 @@ class App:
             st = self.link.read_status()
             self.err.configure(text="")
             self._show(st)
+            self._note_link(True, "")
         except jl.LinkError as e:
             self.err.configure(text=str(e))
             self.state_lab.configure(text=self.t("nolink"), fg=self.pal["bad"])
+            self._note_link(False, str(e))
         self.root.after(self.refresh, self._tick)
+
+    def _note_link(self, ok, why):
+        """Put the coming and going of the link in the log, with the time.
+
+        The label in the window says what is wrong now; nobody watches a label
+        for six hours. A run that has to answer "when did it stop, and did it
+        come back" needs the wall clock, and only the two changes - not one line
+        per second saying the same thing.
+        """
+        if ok == self._link_ok:
+            return
+        self._link_ok = ok
+        say("%s  %s%s" % (time.strftime("%Y-%m-%d %H:%M:%S"),
+                          "link back" if ok else "link lost",
+                          "" if ok else ": " + why.splitlines()[0]))
 
     def _show(self, st):
         p, was = self.pal, self.alarm_on

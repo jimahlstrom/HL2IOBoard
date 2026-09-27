@@ -685,16 +685,25 @@ class UsbLink:
 
     @staticmethod
     def ports():
-        """Serial ports that could be a Pico running this firmware."""
+        """Serial ports that could be a Pico running this firmware.
+
+        Nothing here may raise. Enumerating ports is a convenience on the way
+        to the network route, and on macOS it goes through IOKit by ctypes -
+        which PyInstaller says out loud it cannot follow into a bundle
+        ("only basenames are supported with ctypes imports"). So a frozen app
+        can fail here in ways a script never does, and the answer to all of
+        them is the same: no ports, take the network.
+        """
         try:
             from serial.tools import list_ports
-        except ImportError:
+            out = []
+            for p in list_ports.comports():
+                if getattr(p, "vid", None) == UsbLink.PICO_VID:
+                    out.append(p.device)
+            return out
+        except Exception as e:
+            trace("USB: cannot list ports (%s)" % e)
             return []
-        out = []
-        for p in list_ports.comports():
-            if getattr(p, "vid", None) == UsbLink.PICO_VID:
-                out.append(p.device)
-        return out
 
     @staticmethod
     def find(timeout=2.5):
