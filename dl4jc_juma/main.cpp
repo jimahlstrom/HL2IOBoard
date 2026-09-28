@@ -243,7 +243,15 @@ static void watch_bus(void)
 static const uint32_t RECOVER_AFTER_MS = 30000;  // no write for this long, and
 static const uint32_t RECOVER_HELD_MS  = 50;     // a line held this long
 static const uint32_t RECOVER_GAP_MS   = 60000;  // and not more often than this
-static const uint8_t  RECOVER_MAX      = 10;     // give up in the end
+// Once, not ten times. Measured while the bus was deliberately deadlocked:
+// clocking it free does release SDA - it went from 0 to 1 every time - and the
+// master never resumes, so SDA is pulled down again within the minute.
+// Repeating that is noise on a bus that is already gone, from the only code here
+// that drives it at all. One attempt still answers the question worth asking,
+// which is whether the fault is the held-line kind; 'rec' reaching 1 with sda
+// going 0 -> 1 says it is. A diagnosis, not a repair - only a power cycle of the
+// radio is the latter.
+static const uint8_t  RECOVER_MAX      = 1;
 
 static void scl_pulse(void)
 {
@@ -819,7 +827,11 @@ static void telemetry(void)
 	       (unsigned long)replies, (unsigned long)bad_lines,
 	       (unsigned)rx_lost,
 	       (unsigned long)i2c_writes,
-	       (unsigned long)(last ? (now_ms() - last) / 1000 : 0),
+	       // Nothing has ever arrived: report the whole uptime, not 0. Next to
+	       // wr=0 a zero here reads as "just seen", which is the opposite of
+	       // what it means - and that is exactly the state a board sits in
+	       // while no SDR software has connected to the radio yet.
+	       (unsigned long)((last ? now_ms() - last : now_ms()) / 1000),
 	       gpio_get(GPIO14_I2C1_SDA) ? 1u : 0u,
 	       gpio_get(GPIO15_I2C1_SCL) ? 1u : 0u,
 	       (unsigned long)sda_low_ms, (unsigned long)scl_low_ms,
