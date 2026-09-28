@@ -32,6 +32,7 @@ just take turns failing.
 """
 
 import argparse
+import functools
 import os
 import sys
 import threading
@@ -41,6 +42,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import juma_link as jl          # noqa: E402
 
 REG_LINK = 0x42                 # any register will do; this one is cheap to read
+
+# Every line, the moment it is written. Redirected to a file, print() buffers in
+# blocks - so a run watched through its log file showed the trace lines, which go
+# to stderr, and none of the measurements, which do not. Caught the first time
+# this was used in anger, with the test running fine and looking hung.
+print = functools.partial(print, flush=True)     # noqa: A001
 
 
 class UsbWitness(threading.Thread):
