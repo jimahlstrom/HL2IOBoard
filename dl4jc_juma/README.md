@@ -866,23 +866,14 @@ For the JUMA side, the issues of this repository.
 Written by **DL4JC**, <mail@dl4jc.de>, on a PA-100D and a Hermes Lite 2.
 ---
 
-## The two copied files
+## Where the parser and the band table came from
 
-`juma_status.cpp` and `bands.cpp` — the status parser and the band table — are
-copies. The originals live in `src/` of
-[juma-pa100d-esp32](https://github.com/jcmerg/juma-pa100d-esp32), a controller for the same
-amplifier built on an ESP32 instead of a Hermes Lite 2. They describe the
-**amplifier**, not either controller, so the two have to agree about them: a band
-edge corrected in one place and not the other means they disagree about what band
-the PA is on, on the air.
+`juma_status.*` and `bands.*` started life in an ESP32 firmware for the same
+amplifier and are free of Arduino, so they came across unchanged. They belong to
+this project now and are edited here like everything else; `tests/run.sh` covers
+them on the host, no hardware needed.
 
-They are byte for byte identical on purpose, because that is what makes the copy
-checkable:
-
-    python3 tools/sync_shared.py            # report, non-zero on a difference
-    python3 tools/sync_shared.py --update   # take the originals
-    ./tests/run.sh                          # and check they still behave
-
-So neither is edited here, not even a comment about where it came from.
-Corrections belong in esp32-juma and come back with `--update`. Everything else
-in this folder is maintained here.
+One thing worth knowing before touching a band edge: they describe the
+**amplifier**, not this board, so the other controller carries the same table. A
+correction made in only one of them leaves the two disagreeing about what band
+the PA is on. Nothing checks that for you.

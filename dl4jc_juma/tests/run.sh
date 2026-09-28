@@ -1,11 +1,11 @@
 #!/bin/sh
 # Host tests for the status parser and band mapping - no Pico needed.
 #
-# juma_status.* and bands.* are copies. The originals are src/ in the ESP32
-# firmware for the same amplifier, because both controllers have to agree about
-# what band it is on - a band edge corrected in one place and not the other and
-# they disagree on the air. tools/sync_shared.py says when the copy is stale;
-# these say when it is wrong.
+# They cover juma_status.* and bands.*, which describe the amplifier rather than
+# this board - the same table exists in the ESP32 firmware for the same PA, and a
+# band edge corrected in only one of them leaves the two controllers disagreeing
+# on the air. Nothing enforces that; these tests only say whether what is here
+# behaves.
 set -e
 cd "$(dirname "$0")/.."
 c++ -std=c++17 -Wall -I . tests/test_parse.cpp juma_status.cpp bands.cpp -o "${TMPDIR:-/tmp}/juma-tests"
