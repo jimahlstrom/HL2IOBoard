@@ -167,8 +167,11 @@ static inline uint32_t now_ms(void)
 // bus is dead, and that means the USB port.
 static volatile uint32_t i2c_writes  = 0;
 static volatile uint32_t last_i2c_ms = 0;
-static uint32_t scl_low_since = 0;      // 0 = SCL is not low
+static uint32_t scl_low_since = 0;      // 0 = the line is not low
 static uint32_t scl_low_ms    = 0;
+static uint32_t sda_low_since = 0;
+static uint32_t sda_low_ms    = 0;
+static uint32_t recoveries    = 0;      // times the bus was clocked free
 
 // Hung on registers the two sides write in normal operation: the gateware puts
 // the transmit frequency in REG_TX_FREQ_BYTE0 last, and a host asking for a
@@ -182,16 +185,144 @@ static void note_i2c_write(uint8_t reg, uint8_t data)
 }
 
 // Called once per pass. Two GPIO reads, no allocation, no branch worth counting.
+//
+// Both lines, because the first version watched only SCL and that was the wrong
+// one. Caught in the act: with the bus dead for five and a half hours, SDA read
+// low in 22 of 25 samples while SCL flickered, so scl_low_ms kept resetting to
+// zero and reported nothing wrong. It is SDA that a stuck device holds - it is
+// driving a data bit and waiting for a clock edge that never comes.
+//
+// A millisecond sampler is coarse for a 400 kHz bus, and that is exactly why it
+// works: real traffic leaves both lines idle high between transactions, so a
+// sample almost always lands on a high. Consecutive lows for more than a few
+// milliseconds cannot be traffic.
+static void watch_line(bool high, uint32_t *since, uint32_t *ms)
+{
+	if (high) {
+		*since = 0;
+		*ms = 0;
+	} else {
+		if (!*since)
+			*since = now_ms();
+		*ms = now_ms() - *since;
+	}
+}
+
 static void watch_bus(void)
 {
-	if (gpio_get(GPIO15_I2C1_SCL)) {
-		scl_low_since = 0;
-		scl_low_ms = 0;
-	} else {
-		if (!scl_low_since)
-			scl_low_since = now_ms();
-		scl_low_ms = now_ms() - scl_low_since;
-	}
+	watch_line(gpio_get(GPIO15_I2C1_SCL), &scl_low_since, &scl_low_ms);
+	watch_line(gpio_get(GPIO14_I2C1_SDA), &sda_low_since, &sda_low_ms);
+}
+
+// --- Getting the bus back -------------------------------------------------
+// Measured on a dead bus: SDA held low for five and a half hours, SCL free, no
+// register write arriving, the Pico otherwise perfectly alive. That is the
+// textbook I2C deadlock - some device is driving a data bit and waiting for a
+// clock edge that will not come, because the master stopped mid-transaction.
+//
+// The textbook way out is to be the clock for a moment: pulse SCL until the
+// stuck device has shifted its byte out and released SDA, then make a STOP so
+// everybody agrees the bus is free again. Nine pulses, because a byte is eight
+// bits and the ninth is the acknowledge.
+//
+// Two things are tried, cheapest first:
+//
+//   1. Re-initialise our own slave. If the Pico's peripheral is the one stuck
+//      mid-byte, nothing outside needs touching at all.
+//   2. Clock the bus free, if SDA is still low afterwards.
+//
+// Open drain: a line is pulled low by driving an output low, and released by
+// turning the pin back into an input so the pull-up takes it high. Never drive
+// either line high - another device may be holding it down, and two drivers
+// fighting is how pins die.
+//
+// The rule at the top of this file still holds: interrupts stay on throughout.
+// The pins leave the I2C block for about 200 us, during which this board cannot
+// answer - which costs nothing on a bus that has been dead for minutes.
+static const uint32_t RECOVER_AFTER_MS = 30000;  // no write for this long, and
+static const uint32_t RECOVER_HELD_MS  = 50;     // a line held this long
+static const uint32_t RECOVER_GAP_MS   = 60000;  // and not more often than this
+static const uint8_t  RECOVER_MAX      = 10;     // give up in the end
+
+static void scl_pulse(void)
+{
+	// Release: input, pull-up takes it high. Then drive low. 100 kHz, slow
+	// enough for anything on this bus to follow.
+	gpio_set_dir(GPIO15_I2C1_SCL, GPIO_IN);
+	busy_wait_us(5);
+	gpio_put(GPIO15_I2C1_SCL, 0);
+	gpio_set_dir(GPIO15_I2C1_SCL, GPIO_OUT);
+	busy_wait_us(5);
+}
+
+static void bus_recover(void)
+{
+	// Step 1: our own peripheral, in case it is the one holding the bit.
+	i2c_slave_deinit(i2c1);
+	i2c_deinit(i2c1);
+	i2c_init(i2c1, I2C1_BAUDRATE);
+	i2c_slave_init(i2c1, I2C1_ADDRESS, &i2c_slave_handler);
+	busy_wait_us(100);
+	if (gpio_get(GPIO14_I2C1_SDA))
+		goto done;              // that was enough
+
+	// Step 2: be the clock. Pins out of the I2C block, both as open drain.
+	gpio_set_function(GPIO15_I2C1_SCL, GPIO_FUNC_SIO);
+	gpio_set_function(GPIO14_I2C1_SDA, GPIO_FUNC_SIO);
+	gpio_put(GPIO15_I2C1_SCL, 0);
+	gpio_put(GPIO14_I2C1_SDA, 0);
+	gpio_set_dir(GPIO15_I2C1_SCL, GPIO_IN);
+	gpio_set_dir(GPIO14_I2C1_SDA, GPIO_IN);
+
+	for (int i = 0; i < 9 && !gpio_get(GPIO14_I2C1_SDA); i++)
+		scl_pulse();
+
+	// STOP: SDA low while SCL is high, then SDA released. Whoever was in the
+	// middle of a transfer treats that as the end of one.
+	gpio_set_dir(GPIO15_I2C1_SCL, GPIO_IN);
+	busy_wait_us(5);
+	gpio_set_dir(GPIO14_I2C1_SDA, GPIO_OUT);
+	busy_wait_us(5);
+	gpio_set_dir(GPIO14_I2C1_SDA, GPIO_IN);
+	busy_wait_us(5);
+
+	// And hand the pins back.
+	gpio_set_function(GPIO14_I2C1_SDA, GPIO_FUNC_I2C);
+	gpio_set_function(GPIO15_I2C1_SCL, GPIO_FUNC_I2C);
+	i2c_slave_deinit(i2c1);
+	i2c_deinit(i2c1);
+	i2c_init(i2c1, I2C1_BAUDRATE);
+	i2c_slave_init(i2c1, I2C1_ADDRESS, &i2c_slave_handler);
+
+done:
+	recoveries++;
+	sda_low_since = scl_low_since = 0;
+	sda_low_ms = scl_low_ms = 0;
+}
+
+// Defined below, with the rest of the transmit handling.
+static bool transmitting(void);
+
+// Bounded, and never while the amplifier is transmitting: driving a bus is not
+// something to do in the middle of a transmission, and a fault that only shows
+// up on TX would be hidden by fixing it there.
+static void maybe_recover(void)
+{
+	static uint32_t last_try = 0;
+	static uint8_t  tries    = 0;
+
+	if (tries >= RECOVER_MAX || transmitting())
+		return;
+	if (!last_i2c_ms || now_ms() - last_i2c_ms < RECOVER_AFTER_MS)
+		return;
+	if (sda_low_ms < RECOVER_HELD_MS && scl_low_ms < RECOVER_HELD_MS)
+		return;                 // dead, but nothing is being held
+	if (last_try && now_ms() - last_try < RECOVER_GAP_MS)
+		return;
+
+	last_try = now_ms();
+	tries++;
+	bus_recover();
 }
 
 // --- Receiving ------------------------------------------------------------
@@ -681,7 +812,7 @@ static void telemetry(void)
 	const uint32_t last = last_i2c_ms;
 	printf("JUMA up=%lu link=%u mode=%02X fault=%02X want=%u "
 	       "rep=%lu bad=%lu lost=%u "
-	       "wr=%lu idle=%lu sda=%u scl=%u low=%lu raw=%s\n",
+	       "wr=%lu idle=%lu sda=%u scl=%u slow=%lu clow=%lu rec=%lu raw=%s\n",
 	       (unsigned long)(now_ms() / 1000), online() ? 1u : 0u,
 	       Registers[REG_JUMA_MODE], Registers[REG_FAULT], want_band,
 	       (unsigned long)replies, (unsigned long)bad_lines,
@@ -690,7 +821,8 @@ static void telemetry(void)
 	       (unsigned long)(last ? (now_ms() - last) / 1000 : 0),
 	       gpio_get(GPIO14_I2C1_SDA) ? 1u : 0u,
 	       gpio_get(GPIO15_I2C1_SCL) ? 1u : 0u,
-	       (unsigned long)scl_low_ms, raw);
+	       (unsigned long)sda_low_ms, (unsigned long)scl_low_ms,
+	       (unsigned long)recoveries, raw);
 }
 
 // --- Status into the registers -------------------------------------------
@@ -984,6 +1116,7 @@ int main(void)
 		}
 
 		watch_bus();
+		maybe_recover();
 		drain_rx();
 		run_command();
 		run_setters();

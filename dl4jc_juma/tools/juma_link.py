@@ -114,7 +114,9 @@ class Status:
         self.i2c_idle = None       # seconds since the last one
         self.sda = None            # pad levels, 1 = idle high
         self.scl = None
-        self.scl_low_ms = None     # how long SCL has been held low
+        self.sda_low_ms = None     # how long SDA has been held low - the one
+        self.scl_low_ms = None     # that matters, see below
+        self.recoveries = None     # times the firmware clocked the bus free
         self.operate = False
         self.auto_sel = False      # the PA selects bands itself
         self.pa_tx = False
@@ -864,7 +866,13 @@ class UsbLink:
             st.i2c_idle = int(fields.get("idle", b"0"))
             st.sda = int(fields["sda"])
             st.scl = int(fields.get("scl", b"1"))
-            st.scl_low_ms = int(fields.get("low", b"0"))
+            # A stuck device holds SDA, not SCL: it is driving a data bit and
+            # waiting for a clock edge that never comes. Measured on a bus that
+            # had been dead for five hours, SDA read low in 22 of 25 samples
+            # while SCL flickered - so watching SCL alone reported nothing wrong.
+            st.sda_low_ms = int(fields.get("slow", b"0"))
+            st.scl_low_ms = int(fields.get("clow", fields.get("low", b"0")))
+            st.recoveries = int(fields.get("rec", b"0"))
         return True
 
     def read_status(self):
