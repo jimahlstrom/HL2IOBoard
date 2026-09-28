@@ -41,6 +41,7 @@
 #include <hardware/uart.h>
 #include <pico/i2c_slave.h>
 #include <pico/binary_info.h>
+#include <pico/bootrom.h>
 #include <pico/stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -1038,6 +1039,17 @@ static void usb_console(void)
 				//     reg=51:02      write any register, hex:hex
 				// Recognised in proxy mode as well - the PA has no
 				// command that looks remotely like this.
+				// Getting into the bootloader the usual way needs a
+				// RESET while the button is held, and plugging in USB
+				// does not reset a chip that is already powered from
+				// the radio - so the button is never sampled and the
+				// Pico ignores it. This is the way in that works with
+				// the HL2 switched on.
+				if (!strcmp(in, "bootsel")) {
+					printf("rebooting into the bootloader\n");
+					sleep_ms(50);
+					reset_usb_boot(0, 0);
+				}
 				if (console_register(in)) {
 					n = 0;
 					ch = getchar_timeout_us(0);

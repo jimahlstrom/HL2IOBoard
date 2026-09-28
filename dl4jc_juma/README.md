@@ -416,6 +416,7 @@ pio device monitor -p /dev/cu.usbmodem*        # or: screen /dev/cu.usbmodem* 11
 | `=R`, `=O`, `=C`, `=G2`, … | goes to the PA. `=Bn` only with band following off; `=A` switches following off as it goes |
 | `mode=0E` | set `REG_JUMA_MODE` |
 | `mode+04` / `mode-08` | set or clear those bits, leaving the rest of the byte alone |
+| `bootsel` | reboot into the bootloader. The button needs a RESET to be sampled, and plugging in USB does not reset a Pico already powered from the radio — so with the HL2 switched on the button does nothing and this is the way in |
 | `reg=51:02` | write any register — `REG_JUMA_SET_GAIN` = 2 here |
 
 `mode+` and `mode-` are what a program uses: switching the telemetry feed on
