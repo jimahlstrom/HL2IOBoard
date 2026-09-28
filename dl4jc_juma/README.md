@@ -870,7 +870,7 @@ Written by **DL4JC**, <mail@dl4jc.de>, on a PA-100D and a Hermes Lite 2.
 
 `juma_status.cpp` and `bands.cpp` — the status parser and the band table — are
 copies. The originals live in `src/` of
-[esp32-juma](https://github.com/jcmerg/esp32-juma), a controller for the same
+[juma-pa100d-esp32](https://github.com/jcmerg/juma-pa100d-esp32), a controller for the same
 amplifier built on an ESP32 instead of a Hermes Lite 2. They describe the
 **amplifier**, not either controller, so the two have to agree about them: a band
 edge corrected in one place and not the other means they disagree about what band
