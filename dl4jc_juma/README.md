@@ -572,6 +572,49 @@ The register held one unchanging value through 150 s of watching with not a
 single failed read, and the reason was on screen the whole time — 14.074 above,
 7.170 below.
 
+## Never two commands in a row
+
+This is the one thing to know about the HL2's I2C bridge, and it cost two days
+to find: **commands sent back to back stop it.** Not too many commands — too
+close together.
+
+Measured with `tools/stress_bridge.py`, same 26 commands a second both times,
+one variable changed:
+
+| Shape | Result |
+|---|---|
+| one at a time | 30 minutes, **47 355 commands**, not a blink |
+| bursts of 24 | dead after **19 454 commands**, 15.3 minutes |
+
+When it goes, it goes completely: SDA is held low, no register write arrives,
+and the bridge stops answering on **both** command addresses — `0x3d` for the
+expansion bus and `0x3c` for the internal clock bus. So it is not the
+`i2c_bus2` state machine, it is the command path itself. The radio still answers
+discovery, so from the network it looks alive.
+
+Nothing gets it back but a power cycle of the radio. Clocking the bus free from
+the Pico does release SDA — the firmware does this, and `rec=` in the telemetry
+counts it — but the master never resumes, and SDA is pulled down again within
+the minute. It was tried, it is measured, and it is not a cure.
+
+What this means for anything talking to the board:
+
+- **A window polls with one command per tick.** `Hl2Link.poll()` advances a
+  snapshot by exactly one command and hands back a reading when a whole set has
+  arrived; `juma_gui.py` ticks it every 150 ms.
+- **A script that needs an answer now pays for it in time.** `read_status()`
+  drives `poll()` with `Hl2Link.PACE` between commands and takes about a second.
+  `alive()` is one command, for the common case of only wanting to know whether
+  the radio is there.
+- **Nothing in `juma_link.py` sends two in a row any more**, including the paths
+  that used to: the old register-by-register read, the banner reader, and the
+  connection check that ran on every start.
+
+It also explains the earlier history here. A window polling in bursts of eight
+killed the bus in 31 minutes; the same window at one command per 150 ms ran for
+6 h 33 before the last bursts left in it — a connect-time snapshot — caught up
+with it.
+
 ## One program at a time on the bridge
 
 The HL2's I2C bridge serves one caller. While SDR software holds the radio's

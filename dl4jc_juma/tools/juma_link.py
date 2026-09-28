@@ -322,6 +322,19 @@ class Hl2Link:
     TIMEOUT  = 0.5
     ATTEMPTS = 2
 
+    # The gap between commands when something here has to send more than one.
+    #
+    # Not politeness - this is the fault. Measured with stress_bridge.py at the
+    # same 26 commands a second: sent one at a time, 47355 of them over half an
+    # hour and the bus never blinked. Sent in bursts of 24, it deadlocked after
+    # 19454, and the only way back was a power cycle of the radio. Rate is not
+    # what the gateware's command path minds; commands treading on each other is.
+    #
+    # So nothing in here may send two in a row. A window uses poll() and gets
+    # this for free from its own tick; the few calls that must have an answer
+    # before they can continue pace themselves with this instead.
+    PACE = 0.15
+
     def __init__(self, ip, port=CMD_PORT, settle=None, timeout=None):
         self.ip = ip
         self.port = port
@@ -573,7 +586,14 @@ class Hl2Link:
         # Enough turns for three full sets. A set is refused when the bridge
         # dropped one of its reads, and about one in 25 is - three is the same
         # allowance the burst version made.
-        for _ in range(3 * (SNAP_GROUPS + 1)):
+        #
+        # PACE between them, which makes this take a second or so instead of
+        # fifty milliseconds. That is the price: this used to be eight commands
+        # back to back, which is the shape that kills the bus, and it ran on
+        # every connect.
+        for i in range(3 * (SNAP_GROUPS + 1)):
+            if i:
+                time.sleep(self.PACE)
             st = self.poll()
             if st is not None:
                 return st
@@ -667,18 +687,25 @@ class Hl2Link:
 
     def _read_direct(self, slow_fields=True):
         """The old way, register by register. Only for firmware without the
-        snapshot block - it cannot tell a dropped read from a good one."""
+        snapshot block - it cannot tell a dropped read from a good one.
+
+        Paced like everything else here. Five to eight commands back to back is
+        the shape that deadlocks the radio, and an old image is no reason to
+        risk that - it only makes this path slower, and it is already the one
+        that cannot prove its own answers.
+        """
         st = Status()
-        link, flags, band, want = self.read4(REG_LINK)
-        gain, alarms, swr, volts = self.read4(REG_GAIN)
-        amps, temp, w_msb, w_lsb = self.read4(REG_AMPS)
+        pace = self.PACE
+        link, flags, band, want = self._sleep_then_read4(REG_LINK)
+        gain, alarms, swr, volts = self._sleep_then_read4(REG_GAIN)
+        amps, temp, w_msb, w_lsb = self._sleep_then_read4(REG_AMPS)
         # volts x 100 and amps x 100, the PA's own precision
-        v_hi, v_lo, a_hi, a_lo = self.read4(REG_JUMA_VOLTS100_MSB)
-        w_hi, w_lo, s_hi, s_lo = self.read4(REG_JUMA_WATTS10_MSB)
+        v_hi, v_lo, a_hi, a_lo = self._sleep_then_read4(REG_JUMA_VOLTS100_MSB)
+        w_hi, w_lo, s_hi, s_lo = self._sleep_then_read4(REG_JUMA_WATTS10_MSB)
         if slow_fields:
-            fan, replies, bad, lost = self.read4(REG_FAN)
-            mode, cmd, _l2, _f2 = self.read4(REG_MODE)
-            fault = self.read4(REG_FAULT)[0]
+            fan, replies, bad, lost = self._sleep_then_read4(REG_FAN)
+            mode, cmd, _l2, _f2 = self._sleep_then_read4(REG_MODE)
+            fault = self._sleep_then_read4(REG_FAULT)[0]
             st.fan, st.replies, st.badlines, st.lost = fan, replies, bad, lost
             st.mode, st.fault = mode, fault
         else:
@@ -709,13 +736,39 @@ class Hl2Link:
         self._fan_seen, self._mode_seen, self._fault_seen = st.fan, st.mode, st.fault
         return st
 
+    def _sleep_then_read4(self, reg):
+        """read4 with a gap in front of it, for the paths that need several."""
+        time.sleep(self.PACE)
+        return self.read4(reg)
+
+    def alive(self):
+        """One command, to prove the radio answers. Raises if it does not.
+
+        What a caller wants before it commits to a connection, and read_status()
+        was doing it with a whole snapshot - eight commands back to back, on
+        every start. That is the shape that deadlocks the bus.
+        """
+        self.read4(REG_LINK)
+        return True
+
     def read_banner(self):
-        """What the PA called itself at power-up, a character at a time."""
+        """What the PA called itself at power-up, a character at a time.
+
+        Paced, and therefore slow - a banner of forty characters is eighty
+        commands and about twelve seconds. It used to send all eighty back to
+        back, which is the most dangerous thing in this file: the same shape
+        deadlocked the bus in fifteen minutes when a test did it deliberately.
+        Nothing calls this today; if something is going to, it should read the
+        characters from its own tick loop rather than wait here.
+        """
         self.write(REG_JUMA_BANNER_IDX, 0)
+        time.sleep(self.PACE)
         n = self.read4(REG_JUMA_BANNER_IDX)[1]
         out = []
         for i in range(1, min(n, 47) + 1):
+            time.sleep(self.PACE)
             self.write(REG_JUMA_BANNER_IDX, i)
+            time.sleep(self.PACE)
             out.append(chr(self.read4(REG_JUMA_BANNER_IDX)[1]))
         return "".join(out)
 

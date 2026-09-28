@@ -47,8 +47,15 @@ def main():
         try:
             # Two reads, believed only when they agree: the five frequency
             # bytes need two transactions and can tear between them.
-            a1, b1 = link.read4(0x00), link.read4(0x04)
-            a2, b2 = link.read4(0x00), link.read4(0x04)
+            #
+            # Spaced, because four commands back to back is the shape that
+            # deadlocks the radio's command path - measured, see
+            # tools/stress_bridge.py.
+            def paced():
+                time.sleep(jl.Hl2Link.PACE)
+                return link.read4(0x00), link.read4(0x04)
+            a1, b1 = paced()
+            a2, b2 = paced()
             if a1 != a2 or b1[0] != b2[0]:
                 continue
             hz = (a1[0] << 32) | (a1[1] << 24) | (a1[2] << 16) | (a1[3] << 8) | b1[0]

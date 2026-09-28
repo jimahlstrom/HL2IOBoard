@@ -733,7 +733,7 @@ class Connect(tk.Frame):
             elif ip:
                 port = int(self.e_port.get().strip() or jl.CMD_PORT)
                 link = jl.Hl2Link(ip, port)
-                link.read_status()          # prove it before closing the dialog
+                link.alive()                # prove it before closing the dialog
                 remember(self.cfg, "hl2", ip, port)
             else:
                 self._search()
@@ -758,7 +758,7 @@ def try_saved(cfg, settle=None, allow_usb=True):
             return jl.UsbLink(cfg["usb"])
         if cfg.get("hl2"):
             link = jl.Hl2Link(cfg["hl2"], cfg.get("port") or jl.CMD_PORT, settle=settle)
-            link.read_status()
+            link.alive()
             return link
     except (jl.LinkError, OSError):
         pass
