@@ -386,16 +386,17 @@ the host knows the registers.
 
 | Build | For |
 |---|---|
-| `cmake -DJUMA_HOLD_OPERATE=ON -DJUMA_TELEMETRY=ON ..` | normal operation, and what `juma_gui.py` expects over USB |
-| `… -DJUMA_PROXY=ON` instead of `-DJUMA_TELEMETRY=ON` | the USB port is the PA's serial port from power-up, for software that already speaks JUMA |
+| `cmake ..` | out of the box: follows the band, holds the PA in OPERATE, and says once a second on USB what it and the amplifier are doing |
+| `… -DJUMA_HOLD_OPERATE=OFF` | leave a STANDBY standing — for a board that is only meant to watch and follow |
+| `… -DJUMA_PROXY=ON -DJUMA_TELEMETRY=OFF` | the USB port is the PA's serial port from power-up, for software that already speaks JUMA |
 | `… -DJUMA_DEBUG=ON` as well | the bench: every line, every command, every state change |
 
-| Option | |
-|---|---|
-| `JUMA_HOLD_OPERATE` | put the PA back into OPERATE when it drops to STANDBY — three tries, 5 s apart, never while an alarm is latched, and the counter is reset by every band command, because a band change knocking it out is expected |
-| `JUMA_TELEMETRY` | one status line per second on USB |
-| `JUMA_PROXY` | the USB port carries the PA's serial traffic verbatim |
-| `JUMA_DEBUG` | the trace, and leave it off together with `JUMA_PROXY` — a trace line is something the PA would never say |
+| Option | Default | |
+|---|---|---|
+| `JUMA_TELEMETRY` | **ON** | one status line per second on USB. On by default because it answers "is this thing running" with a terminal and nothing else, which is the first question anybody has — and because `juma_gui.py` reads that line over USB |
+| `JUMA_HOLD_OPERATE` | **ON** | put the PA back into OPERATE when it drops to STANDBY — three tries, 5 s apart, never while an alarm is latched, and the counter is reset by every band command, because a band change knocking it out is expected |
+| `JUMA_PROXY` | OFF | the USB port carries the PA's serial traffic verbatim. It suppresses the telemetry line, and everything typed at the port reaches the amplifier, so it is something to ask for rather than to be given |
+| `JUMA_DEBUG` | OFF | the trace, and leave it off together with `JUMA_PROXY` — a trace line is something the PA would never say |
 
 The same defaults are restored when the host resets the board (a write of 1 to
 `REG_CONTROL`), along with the firmware's own retry counters and the frequency it
@@ -415,6 +416,7 @@ pio device monitor -p /dev/cu.usbmodem*        # or: screen /dev/cu.usbmodem* 11
 | `=R`, `=O`, `=C`, `=G2`, … | goes to the PA. `=Bn` only with band following off; `=A` switches following off as it goes |
 | `mode=0E` | set `REG_JUMA_MODE` |
 | `mode+04` / `mode-08` | set or clear those bits, leaving the rest of the byte alone |
+| `bootsel` | reboot into the bootloader. The button needs a RESET to be sampled, and plugging in USB does not reset a Pico already powered from the radio — so with the HL2 switched on the button does nothing and this is the way in |
 | `reg=51:02` | write any register — `REG_JUMA_SET_GAIN` = 2 here |
 
 `mode+` and `mode-` are what a program uses: switching the telemetry feed on
@@ -487,7 +489,6 @@ address given, so related values sit next to each other.
 | 0x5A–0x5B | `REG_JUMA_SWR100_*` | VSWR × 100, 16 bit |
 | 0x5C | `REG_JUMA_BANNER_IDX` | rw — which character of the PA's power-up banner to look at; 0 asks for its length |
 | 0x5D | `REG_JUMA_BANNER_CH` | that character, or the length at index 0 |
-| 0x5E | `REG_JUMA_SAVED` | 1 = the mode came out of flash |
 | 0x5F | `REG_JUMA_SNAP` | wo — write anything to take a snapshot, see below |
 | 0x60–0x7B | snapshot | seven stamped groups of four, see below |
 
@@ -571,6 +572,49 @@ The register held one unchanging value through 150 s of watching with not a
 single failed read, and the reason was on screen the whole time — 14.074 above,
 7.170 below.
 
+## Never two commands in a row
+
+This is the one thing to know about the HL2's I2C bridge, and it cost two days
+to find: **commands sent back to back stop it.** Not too many commands — too
+close together.
+
+Measured with `tools/stress_bridge.py`, same 26 commands a second both times,
+one variable changed:
+
+| Shape | Result |
+|---|---|
+| one at a time | 30 minutes, **47 355 commands**, not a blink |
+| bursts of 24 | dead after **19 454 commands**, 15.3 minutes |
+
+When it goes, it goes completely: SDA is held low, no register write arrives,
+and the bridge stops answering on **both** command addresses — `0x3d` for the
+expansion bus and `0x3c` for the internal clock bus. So it is not the
+`i2c_bus2` state machine, it is the command path itself. The radio still answers
+discovery, so from the network it looks alive.
+
+Nothing gets it back but a power cycle of the radio. Clocking the bus free from
+the Pico does release SDA — the firmware does this, and `rec=` in the telemetry
+counts it — but the master never resumes, and SDA is pulled down again within
+the minute. It was tried, it is measured, and it is not a cure.
+
+What this means for anything talking to the board:
+
+- **A window polls with one command per tick.** `Hl2Link.poll()` advances a
+  snapshot by exactly one command and hands back a reading when a whole set has
+  arrived; `juma_gui.py` ticks it every 150 ms.
+- **A script that needs an answer now pays for it in time.** `read_status()`
+  drives `poll()` with `Hl2Link.PACE` between commands and takes about a second.
+  `alive()` is one command, for the common case of only wanting to know whether
+  the radio is there.
+- **Nothing in `juma_link.py` sends two in a row any more**, including the paths
+  that used to: the old register-by-register read, the banner reader, and the
+  connection check that ran on every start.
+
+It also explains the earlier history here. A window polling in bursts of eight
+killed the bus in 31 minutes; the same window at one command per 150 ms ran for
+6 h 33 before the last bursts left in it — a connect-time snapshot — caught up
+with it.
+
 ## One program at a time on the bridge
 
 The HL2's I2C bridge serves one caller. While SDR software holds the radio's
@@ -645,21 +689,63 @@ a shifter wired straight to the Pico's pins. The divider that would have sat in
 that path is discussed under the wiring, and this is the measurement that says
 avoiding it was worth the two extra wires.
 
-## The mode is kept in flash
+## The one rule this firmware has to keep
 
-`REG_JUMA_MODE` is written to the last flash sector three seconds after it
-changes — not at once, so a run of clicks costs one write, and never while the
-PA is transmitting, because the erase runs with interrupts off for tens of
-milliseconds and the receive FIFO only covers 2.7 ms at 115200.
+**Never disable interrupts, and never write flash.**
 
-A mode kept from last time wins over the one built in: it is what the operator
-chose, and the compiled value only describes a board that has never been told
-anything. `REG_JUMA_SAVED` says which of the two you are looking at. A host
-reset (`REG_CONTROL` = 1) restores the saved mode, not the compiled one — the
-same thing a power cycle gives.
+The Pico is an I2C **slave** on the radio's expansion bus. A slave that cannot
+answer in time does not simply fall behind — the hardware pulls SCL low and
+holds it, which is exactly what I2C asks it to do. It means "wait", and the
+master must. The line comes back up when the interrupt handler runs.
 
-This is what makes the OPERATE hold, the proxy and the telemetry feed settings
-rather than build options. Once the board is in the box, that matters.
+So anything that keeps that handler from running hands the whole bus a brake:
+
+    save_and_disable_interrupts()   flash_range_erase()   flash_range_program()
+    critical sections, long ISRs, anything busy-waiting with interrupts masked
+
+And the master on the other end has nothing to get out with. The gateware drops
+whatever arrives while it is busy (`i2c_bus2.v`, `// Missed`), does not even wire
+up the bridge's acknowledge line (`hermeslite_core.v`, `.cmd_ack() // No need for
+ack`), and has neither a timeout nor a bus recovery. Measured here: once that
+master stops, it stays stopped for **hours** — 7.7 of them in one case — and only
+a power cycle of the radio brings it back. The filter board sits on the same bus
+with its own address, so its relays stop switching too. From the outside the
+whole radio looks broken.
+
+A flash write cost tens of milliseconds of that, which is why the mode is no
+longer kept (below). As of this writing the firmware holds the rule: `sleep_ms(1)`
+paces the loop and nothing masks an interrupt anywhere. `printf` to the USB port
+can block the main loop for up to 10 ms, but interrupts stay on and the I2C
+handler keeps running, so that is fine.
+
+Worth checking before adding anything that touches flash, timing or a critical
+section:
+
+    grep -n 'save_and_disable_interrupts\|critical_section\|flash_range' main.cpp
+
+Empty is the correct answer.
+
+## The mode is not kept
+
+`REG_JUMA_MODE` comes up as the compiled `JUMA_MODE_AT_BOOT` and stays in RAM. A
+host that wants something else writes it after every start; a host reset
+(`REG_CONTROL` = 1) puts the compiled value back.
+
+It used to be written to the last flash sector, and that is out for one reason:
+an erase runs with interrupts off for tens of milliseconds, and during that the
+Pico cannot serve its I2C slave, so the RP2040 holds SCL low. The HL2's master
+has no timeout and no bus recovery — `i2c_bus2.v`, and `hermeslite_core.v` does
+not even wire up the acknowledge line — and the filter board sits on that same
+expansion bus with its own address (`HL2IOBoard/README.md`: the Pico's 0x1D is
+"distinct from the filter board I2C address"). One erase in the wrong moment can
+take the whole bus down, filter relays included. Seen here: nothing on the
+expansion bus answered any more, and only a power cycle of the HL2 brought it
+back - the SDR software, the Pico and the PA were all innocent and all looked
+guilty.
+
+A mode that survives a power cycle is a convenience. A wedged I2C bus costs the
+station. So the OPERATE hold, the proxy and the telemetry feed are build options
+again, or something the host sets each time.
 
 
 ## Telemetry on the USB port
@@ -669,7 +755,7 @@ at any time, in any image — the firmware puts one line per second on the USB
 serial port:
 
 ```
-JUMA up=312 link=1 mode=06 fault=00 want=5 rep=624 bad=0 lost=0 raw=O:A:T:C:5:1:1.0:14.09:8.1:27.2:26:0:0
+JUMA up=312 link=1 mode=06 fault=00 want=5 rep=624 bad=0 lost=0 wr=91 idle=0 sda=1 scl=1 slow=0 clow=0 rec=0 raw=O:A:T:C:5:1:1.0:14.09:8.1:27.2:26:0:0
 ```
 
 Space separated `key=value`, so a program reads it with a `split()`. The fields
@@ -823,13 +909,14 @@ For the JUMA side, the issues of this repository.
 Written by **DL4JC**, <mail@dl4jc.de>, on a PA-100D and a Hermes Lite 2.
 ---
 
-## Where this comes from
+## Where the parser and the band table came from
 
-This folder is generated. `juma_status.cpp` and `bands.cpp` - the status parser
-and the band table - are shared with an ESP32 firmware for the same amplifier,
-where they are also covered by host tests, and `make_upstream.py` there copies
-them in. Corrections belong upstream of this copy:
+`juma_status.*` and `bands.*` started life in an ESP32 firmware for the same
+amplifier and are free of Arduino, so they came across unchanged. They belong to
+this project now and are edited here like everything else; `tests/run.sh` covers
+them on the host, no hardware needed.
 
-    https://github.com/jcmerg/esp32-juma
-
-Generated from v1.28.0-7-ge8d13d8-dirty.
+One thing worth knowing before touching a band edge: they describe the
+**amplifier**, not this board, so the other controller carries the same table. A
+correction made in only one of them leaves the two disagreeing about what band
+the PA is on. Nothing checks that for you.

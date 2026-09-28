@@ -39,10 +39,9 @@
 #include <hardware/pwm.h>
 #include <hardware/adc.h>
 #include <hardware/uart.h>
-#include <hardware/flash.h>
-#include <hardware/sync.h>
 #include <pico/i2c_slave.h>
 #include <pico/binary_info.h>
+#include <pico/bootrom.h>
 #include <pico/stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -113,66 +112,226 @@ static inline uint32_t now_ms(void)
 	return to_ms_since_boot(get_absolute_time());
 }
 
-// --- Remembering the mode -------------------------------------------------
-// The registers are RAM and come up zero, so without this a mode the operator
-// set - the OPERATE hold above all - would be gone at the next power-up, and
-// getting it back would mean opening the box to reflash. The last flash sector
-// holds it instead.
+// --- The mode at power-up -------------------------------------------------
+// It is not kept. Storing it meant erasing a flash sector, and an erase runs
+// with interrupts off for tens of milliseconds - during which the I2C slave
+// cannot be served, so the RP2040 holds SCL low. The HL2's master has no
+// timeout and no bus recovery (i2c_bus2.v, and hermeslite_core.v does not even
+// wire up the acknowledge line), and the filter board sits on that same
+// expansion bus with its own address. One erase in the wrong moment can
+// therefore take the whole bus down, filter relays included.
 //
-// Writing flash means erasing a whole sector with interrupts off, which takes
-// tens of milliseconds. During that the UART interrupt does not run and the
-// receive FIFO (32 bytes, 2.7 ms at 115200) overflows, so a status line is lost.
-// That is why it only happens when the mode has really changed, has then stood
-// still for a while, and the PA is not transmitting.
-#define SAVE_MAGIC   0x4A554D41u        // 'JUMA'
-#define SAVE_OFFSET  (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE)
-static const uint32_t SAVE_SETTLE_MS = 3000;
+// A mode that survives a power cycle is a convenience; a wedged I2C bus costs
+// the station. So the mode comes up as JUMA_MODE_AT_BOOT, which is a build
+// option, and a host that wants something else writes REG_JUMA_MODE after
+// every start.
 
-struct Saved {
-	uint32_t magic;
-	uint8_t  version;
-	uint8_t  mode;
-	uint8_t  pad[2];
-	uint32_t check;                 // magic ^ version ^ mode, so a half
-};                                      // written page cannot read as valid
+// --- Is the bus still there? ----------------------------------------------
+// The expansion bus has died twice here: no register answered, the band stopped
+// following, the filter board stopped switching, and only a power cycle of the
+// HL2 brought it back. From the outside those look identical, but they are two
+// different faults and only one of them could ever be repaired from this side:
+//
+//   somebody holds a line down   - a classic jam. SCL or SDA stays low, and the
+//                                  cure is to clock SCL until the stuck device
+//                                  lets go. This board owns the pins, so it
+//                                  could do that.
+//   the master's state machine   - the gateware is waiting for something inside
+//   has stopped                    itself. The lines are idle and high, nothing
+//                                  is held, and no amount of clocking from out
+//                                  here resets logic in an FPGA. Only a reset
+//                                  of the radio helps.
+//
+// Telling them apart took a day of guessing, so measure it instead. What this
+// reports is facts, not a verdict:
+//
+//   sda, scl   the pad levels. gpio_get() reads the input whatever the function
+//              mux says, so this works while the pins belong to the I2C block.
+//              Both high with no traffic is the second case; a line low for
+//              hundreds of milliseconds is the first.
+//   low        how long SCL has been continuously low, in ms. During traffic at
+//              400 kHz it is never more than a couple of microseconds, so
+//              anything the 1 ms loop can even see is already wrong.
+//   wr, idle   register writes seen, and how long since the last one. Writes are
+//              all this can count: IrqHandler fires on a write, and a read by
+//              the host leaves no trace here. In principle that makes 'idle'
+//              weaker than it looks - a station sitting on one frequency might
+//              have nothing to write. Measured on a gateware 74.2 it does not
+//              work out that way: the radio rewrites the transmit frequency
+//              about 2.5 times a second whether it changed or not, with no
+//              software on the bridge at all. So on this radio 'idle' does climb
+//              when the bus dies. On another one, check 'wr' moves before
+//              trusting it, and read sda/scl either way - those are never
+//              ambiguous.
+//
+// None of it goes into a register. The whole point is to be readable when the
+// bus is dead, and that means the USB port.
+static volatile uint32_t i2c_writes  = 0;
+static volatile uint32_t last_i2c_ms = 0;
+static uint32_t scl_low_since = 0;      // 0 = the line is not low
+static uint32_t scl_low_ms    = 0;
+static uint32_t sda_low_since = 0;
+static uint32_t sda_low_ms    = 0;
+static uint32_t recoveries    = 0;      // times the bus was clocked free
 
-static uint8_t  saved_mode   = 0;       // what is in flash now
-static bool     saved_valid  = false;
-static uint32_t mode_changed_at = 0;
-static uint8_t  mode_last    = 0;
-
-static bool save_load(uint8_t *mode)
+// Hung on registers the two sides write in normal operation: the gateware puts
+// the transmit frequency in REG_TX_FREQ_BYTE0 last, and a host asking for a
+// snapshot writes REG_JUMA_SNAP.
+static void note_i2c_write(uint8_t reg, uint8_t data)
 {
-	const Saved *f = (const Saved *)(XIP_BASE + SAVE_OFFSET);
-	if (f->magic != SAVE_MAGIC || f->version != 1)
-		return false;
-	if (f->check != (SAVE_MAGIC ^ f->version ^ f->mode))
-		return false;
-	*mode = f->mode;
-	return true;
+	(void)reg;
+	(void)data;
+	i2c_writes++;
+	last_i2c_ms = now_ms();
 }
 
-static void save_store(uint8_t mode)
+// Called once per pass. Two GPIO reads, no allocation, no branch worth counting.
+//
+// Both lines, because the first version watched only SCL and that was the wrong
+// one. Caught in the act: with the bus dead for five and a half hours, SDA read
+// low in 22 of 25 samples while SCL flickered, so scl_low_ms kept resetting to
+// zero and reported nothing wrong. It is SDA that a stuck device holds - it is
+// driving a data bit and waiting for a clock edge that never comes.
+//
+// A millisecond sampler is coarse for a 400 kHz bus, and that is exactly why it
+// works: real traffic leaves both lines idle high between transactions, so a
+// sample almost always lands on a high. Consecutive lows for more than a few
+// milliseconds cannot be traffic.
+static void watch_line(bool high, uint32_t *since, uint32_t *ms)
 {
-	// A whole page, because that is the smallest unit flash_range_program
-	// takes, and it has to be aligned - hence the static buffer.
-	static uint8_t page[FLASH_PAGE_SIZE] __attribute__((aligned(4)));
-	Saved *rec = (Saved *)page;
+	if (high) {
+		*since = 0;
+		*ms = 0;
+	} else {
+		if (!*since)
+			*since = now_ms();
+		*ms = now_ms() - *since;
+	}
+}
 
-	memset(page, 0xFF, sizeof(page));
-	rec->magic   = SAVE_MAGIC;
-	rec->version = 1;
-	rec->mode    = mode;
-	rec->pad[0]  = rec->pad[1] = 0;
-	rec->check   = SAVE_MAGIC ^ 1u ^ mode;
+static void watch_bus(void)
+{
+	watch_line(gpio_get(GPIO15_I2C1_SCL), &scl_low_since, &scl_low_ms);
+	watch_line(gpio_get(GPIO14_I2C1_SDA), &sda_low_since, &sda_low_ms);
+}
 
-	uint32_t ints = save_and_disable_interrupts();
-	flash_range_erase(SAVE_OFFSET, FLASH_SECTOR_SIZE);
-	flash_range_program(SAVE_OFFSET, page, FLASH_PAGE_SIZE);
-	restore_interrupts(ints);
+// --- Getting the bus back -------------------------------------------------
+// Measured on a dead bus: SDA held low for five and a half hours, SCL free, no
+// register write arriving, the Pico otherwise perfectly alive. That is the
+// textbook I2C deadlock - some device is driving a data bit and waiting for a
+// clock edge that will not come, because the master stopped mid-transaction.
+//
+// The textbook way out is to be the clock for a moment: pulse SCL until the
+// stuck device has shifted its byte out and released SDA, then make a STOP so
+// everybody agrees the bus is free again. Nine pulses, because a byte is eight
+// bits and the ninth is the acknowledge.
+//
+// Two things are tried, cheapest first:
+//
+//   1. Re-initialise our own slave. If the Pico's peripheral is the one stuck
+//      mid-byte, nothing outside needs touching at all.
+//   2. Clock the bus free, if SDA is still low afterwards.
+//
+// Open drain: a line is pulled low by driving an output low, and released by
+// turning the pin back into an input so the pull-up takes it high. Never drive
+// either line high - another device may be holding it down, and two drivers
+// fighting is how pins die.
+//
+// The rule at the top of this file still holds: interrupts stay on throughout.
+// The pins leave the I2C block for about 200 us, during which this board cannot
+// answer - which costs nothing on a bus that has been dead for minutes.
+static const uint32_t RECOVER_AFTER_MS = 30000;  // no write for this long, and
+static const uint32_t RECOVER_HELD_MS  = 50;     // a line held this long
+static const uint32_t RECOVER_GAP_MS   = 60000;  // and not more often than this
+// Once, not ten times. Measured while the bus was deliberately deadlocked:
+// clocking it free does release SDA - it went from 0 to 1 every time - and the
+// master never resumes, so SDA is pulled down again within the minute.
+// Repeating that is noise on a bus that is already gone, from the only code here
+// that drives it at all. One attempt still answers the question worth asking,
+// which is whether the fault is the held-line kind; 'rec' reaching 1 with sda
+// going 0 -> 1 says it is. A diagnosis, not a repair - only a power cycle of the
+// radio is the latter.
+static const uint8_t  RECOVER_MAX      = 1;
 
-	saved_mode  = mode;
-	saved_valid = true;
+static void scl_pulse(void)
+{
+	// Release: input, pull-up takes it high. Then drive low. 100 kHz, slow
+	// enough for anything on this bus to follow.
+	gpio_set_dir(GPIO15_I2C1_SCL, GPIO_IN);
+	busy_wait_us(5);
+	gpio_put(GPIO15_I2C1_SCL, 0);
+	gpio_set_dir(GPIO15_I2C1_SCL, GPIO_OUT);
+	busy_wait_us(5);
+}
+
+static void bus_recover(void)
+{
+	// Step 1: our own peripheral, in case it is the one holding the bit.
+	i2c_slave_deinit(i2c1);
+	i2c_deinit(i2c1);
+	i2c_init(i2c1, I2C1_BAUDRATE);
+	i2c_slave_init(i2c1, I2C1_ADDRESS, &i2c_slave_handler);
+	busy_wait_us(100);
+	if (gpio_get(GPIO14_I2C1_SDA))
+		goto done;              // that was enough
+
+	// Step 2: be the clock. Pins out of the I2C block, both as open drain.
+	gpio_set_function(GPIO15_I2C1_SCL, GPIO_FUNC_SIO);
+	gpio_set_function(GPIO14_I2C1_SDA, GPIO_FUNC_SIO);
+	gpio_put(GPIO15_I2C1_SCL, 0);
+	gpio_put(GPIO14_I2C1_SDA, 0);
+	gpio_set_dir(GPIO15_I2C1_SCL, GPIO_IN);
+	gpio_set_dir(GPIO14_I2C1_SDA, GPIO_IN);
+
+	for (int i = 0; i < 9 && !gpio_get(GPIO14_I2C1_SDA); i++)
+		scl_pulse();
+
+	// STOP: SDA low while SCL is high, then SDA released. Whoever was in the
+	// middle of a transfer treats that as the end of one.
+	gpio_set_dir(GPIO15_I2C1_SCL, GPIO_IN);
+	busy_wait_us(5);
+	gpio_set_dir(GPIO14_I2C1_SDA, GPIO_OUT);
+	busy_wait_us(5);
+	gpio_set_dir(GPIO14_I2C1_SDA, GPIO_IN);
+	busy_wait_us(5);
+
+	// And hand the pins back.
+	gpio_set_function(GPIO14_I2C1_SDA, GPIO_FUNC_I2C);
+	gpio_set_function(GPIO15_I2C1_SCL, GPIO_FUNC_I2C);
+	i2c_slave_deinit(i2c1);
+	i2c_deinit(i2c1);
+	i2c_init(i2c1, I2C1_BAUDRATE);
+	i2c_slave_init(i2c1, I2C1_ADDRESS, &i2c_slave_handler);
+
+done:
+	recoveries++;
+	sda_low_since = scl_low_since = 0;
+	sda_low_ms = scl_low_ms = 0;
+}
+
+// Defined below, with the rest of the transmit handling.
+static bool transmitting(void);
+
+// Bounded, and never while the amplifier is transmitting: driving a bus is not
+// something to do in the middle of a transmission, and a fault that only shows
+// up on TX would be hidden by fixing it there.
+static void maybe_recover(void)
+{
+	static uint32_t last_try = 0;
+	static uint8_t  tries    = 0;
+
+	if (tries >= RECOVER_MAX || transmitting())
+		return;
+	if (!last_i2c_ms || now_ms() - last_i2c_ms < RECOVER_AFTER_MS)
+		return;
+	if (sda_low_ms < RECOVER_HELD_MS && scl_low_ms < RECOVER_HELD_MS)
+		return;                 // dead, but nothing is being held
+	if (last_try && now_ms() - last_try < RECOVER_GAP_MS)
+		return;
+
+	last_try = now_ms();
+	tries++;
+	bus_recover();
 }
 
 // --- Receiving ------------------------------------------------------------
@@ -570,36 +729,6 @@ static void run_setters(void)
 	}
 }
 
-// Watch REG_JUMA_MODE and put it in flash once it has settled.
-static void save_mode_if_settled(void)
-{
-	uint8_t mode = Registers[REG_JUMA_MODE];
-
-	if (mode != mode_last) {
-		mode_last = mode;
-		mode_changed_at = now_ms();
-		return;
-	}
-	if (!mode_changed_at)                       // nothing has changed since boot
-		return;
-	if (now_ms() - mode_changed_at < SAVE_SETTLE_MS)
-		return;
-	if (saved_valid && saved_mode == mode) {    // already in flash
-		mode_changed_at = 0;
-		return;
-	}
-	// Not in the middle of a transmission: the erase stops the receive
-	// interrupt for tens of milliseconds, and that is not the moment.
-	if (transmitting())
-		return;
-
-	save_store(mode);
-	mode_changed_at = 0;
-#if JUMA_DEBUG
-	printf("mode %02X saved to flash\n", mode);
-#endif
-}
-
 // Defined with publish() below, which is where the rest of the scaling lives.
 static uint16_t scale(float v, float f);
 
@@ -689,12 +818,24 @@ static void telemetry(void)
 			raw[o++] = *c;
 	raw[o] = '\0';
 
+	const uint32_t last = last_i2c_ms;
 	printf("JUMA up=%lu link=%u mode=%02X fault=%02X want=%u "
-	       "rep=%lu bad=%lu lost=%u raw=%s\n",
+	       "rep=%lu bad=%lu lost=%u "
+	       "wr=%lu idle=%lu sda=%u scl=%u slow=%lu clow=%lu rec=%lu raw=%s\n",
 	       (unsigned long)(now_ms() / 1000), online() ? 1u : 0u,
 	       Registers[REG_JUMA_MODE], Registers[REG_FAULT], want_band,
 	       (unsigned long)replies, (unsigned long)bad_lines,
-	       (unsigned)rx_lost, raw);
+	       (unsigned)rx_lost,
+	       (unsigned long)i2c_writes,
+	       // Nothing has ever arrived: report the whole uptime, not 0. Next to
+	       // wr=0 a zero here reads as "just seen", which is the opposite of
+	       // what it means - and that is exactly the state a board sits in
+	       // while no SDR software has connected to the radio yet.
+	       (unsigned long)((last ? now_ms() - last : now_ms()) / 1000),
+	       gpio_get(GPIO14_I2C1_SDA) ? 1u : 0u,
+	       gpio_get(GPIO15_I2C1_SCL) ? 1u : 0u,
+	       (unsigned long)sda_low_ms, (unsigned long)scl_low_ms,
+	       (unsigned long)recoveries, raw);
 }
 
 // --- Status into the registers -------------------------------------------
@@ -779,8 +920,6 @@ static void publish(void)
 	Registers[REG_JUMA_BANNER_CH] =
 		(bi == 0) ? banner_len :
 		(bi <= banner_len) ? (uint8_t)banner[bi - 1] : 0;
-
-	Registers[REG_JUMA_SAVED] = saved_valid ? 1 : 0;
 
 	// REG_FAULT is a bit field here. JUMA_FAULT_BAD_CMD is set by
 	// run_command() and stays until the host resets the registers.
@@ -912,6 +1051,17 @@ static void usb_console(void)
 				//     reg=51:02      write any register, hex:hex
 				// Recognised in proxy mode as well - the PA has no
 				// command that looks remotely like this.
+				// Getting into the bootloader the usual way needs a
+				// RESET while the button is held, and plugging in USB
+				// does not reset a chip that is already powered from
+				// the radio - so the button is never sampled and the
+				// Pico ignores it. This is the way in that works with
+				// the HL2 switched on.
+				if (!strcmp(in, "bootsel")) {
+					printf("rebooting into the bootloader\n");
+					sleep_ms(50);
+					reset_usb_boot(0, 0);
+				}
 				if (console_register(in)) {
 					n = 0;
 					ch = getchar_timeout_us(0);
@@ -953,22 +1103,17 @@ int main(void)
 	uart_set_format(UART_ID, DATA_BITS, STOP_BITS, PARITY);
 	uart_set_fifo_enabled(UART_ID, true);
 
-	// A mode kept from last time wins over the one built in: it is what the
-	// operator chose, and the built-in value is only the state of a board that
-	// has never been told anything.
-	uint8_t boot_mode = JUMA_MODE_AT_BOOT;
-	if (save_load(&saved_mode)) {
-		saved_valid = true;
-		boot_mode = saved_mode;
-	}
-	Registers[REG_JUMA_MODE] = boot_mode;
-	mode_last = boot_mode;
+	Registers[REG_JUMA_MODE] = JUMA_MODE_AT_BOOT;
 
 	// Let the SDR software recognise the board, or it will not send the
 	// transmit frequency at all and nothing downstream of it can work.
 	Registers[REG_LPF_DETECT] = LPF_DETECT_MAGIC;
 	Registers[REG_LPF_STATUS] = 0;
 	IrqHandler[REG_CONTROL]  = on_control_written;
+	// See 'Is the bus still there?' above: the two registers the gateway
+	// and a host write in normal operation, used as a sign of life.
+	IrqHandler[REG_TX_FREQ_BYTE0] = note_i2c_write;
+	IrqHandler[REG_JUMA_SNAP]     = note_i2c_write;
 
 	int UART_IRQ = UART_ID == uart0 ? UART0_IRQ : UART1_IRQ;
 	irq_set_exclusive_handler(UART_IRQ, on_uart_rx);
@@ -983,13 +1128,8 @@ int main(void)
 			// The library has just zeroed every register, new_tx_freq
 			// included. Put our default back and start over, so the
 			// retry counters do not carry a state that no longer exists.
-			// 'Power-up condition' now means what is in flash, if
-			// anything is - the same thing a real power cycle gives.
 			Registers[REG_LPF_DETECT] = LPF_DETECT_MAGIC;
-			Registers[REG_JUMA_MODE] =
-				saved_valid ? saved_mode : (uint8_t)JUMA_MODE_AT_BOOT;
-			mode_last = Registers[REG_JUMA_MODE];
-			mode_changed_at = 0;
+			Registers[REG_JUMA_MODE] = JUMA_MODE_AT_BOOT;
 			tx_freq = 0;
 			want_band = 0;
 			force_m_tries = 0;
@@ -999,6 +1139,8 @@ int main(void)
 #endif
 		}
 
+		watch_bus();
+		maybe_recover();
 		drain_rx();
 		run_command();
 		run_setters();
@@ -1016,7 +1158,6 @@ int main(void)
 		pump_queue();
 		publish();
 		take_snapshot();		// after publish(), which fills what it copies
-		save_mode_if_settled();
 		telemetry();
 		usb_console();
 	}

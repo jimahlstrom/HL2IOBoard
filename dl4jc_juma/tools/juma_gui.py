@@ -96,7 +96,12 @@ def set_icon(root):
     except (tk.TclError, OSError):
         pass            # an icon is nice, not necessary
 
-REFRESH_HL2_MS = 1000
+# One command per tick over the HL2's bridge, not a burst of eight every
+# second. Eight ticks make a full set, so the values still arrive about once a
+# second - but the bridge never sees two commands back to back, which is how
+# n2adr_ioboard.pyw has asked it for years. 150 ms also puts fewer commands per
+# second on it than the old burst did: 6.7 against 8.
+REFRESH_HL2_MS = 150
 REFRESH_USB_MS = 500
 ALARM_REPEAT_MS = 5000
 
@@ -150,6 +155,8 @@ class App:
         self.buttons = []
         self.fails = 0          # consecutive failed reads
         self.busy = False       # the radio is streaming for somebody else
+        self._link_ok = True    # last state written to the log, see _note_link
+        self._tally_at = time.time()
 
         self._build()
         self._apply_theme()
@@ -478,13 +485,52 @@ class App:
     # --- refresh ----------------------------------------------------------
     def _tick(self):
         try:
-            st = self.link.read_status()
+            # One command per tick over the radio's bridge, and a Status only
+            # once a whole set has come in. Over USB poll() is just a read -
+            # nothing there needs pacing.
+            st = self.link.poll()
             self.err.configure(text="")
-            self._show(st)
+            if st is not None:
+                self._show(st)
+            self._note_link(True, "")
+            self._tally()
         except jl.LinkError as e:
             self.err.configure(text=str(e))
             self.state_lab.configure(text=self.t("nolink"), fg=self.pal["bad"])
+            self._note_link(False, str(e))
         self.root.after(self.refresh, self._tick)
+
+    TALLY_S = 600
+
+    def _tally(self):
+        """Every ten minutes, how often the bridge tore a set.
+
+        Over a run of hours this is the number that matters: a set is refused
+        when the bridge dropped one of its reads, so the share of them is how
+        busy it is. If it climbs before the bus goes, that is a warning with a
+        time on it instead of a surprise.
+        """
+        if not self.is_hl2 or time.time() - self._tally_at < self.TALLY_S:
+            return
+        self._tally_at = time.time()
+        r, t = self.link.rounds, self.link.retries
+        say("%s  %d sets, %d torn (%.0f %%)"
+            % (time.strftime("%Y-%m-%d %H:%M:%S"), r, t, 100.0 * t / max(r, 1)))
+
+    def _note_link(self, ok, why):
+        """Put the coming and going of the link in the log, with the time.
+
+        The label in the window says what is wrong now; nobody watches a label
+        for six hours. A run that has to answer "when did it stop, and did it
+        come back" needs the wall clock, and only the two changes - not one line
+        per second saying the same thing.
+        """
+        if ok == self._link_ok:
+            return
+        self._link_ok = ok
+        say("%s  %s%s" % (time.strftime("%Y-%m-%d %H:%M:%S"),
+                          "link back" if ok else "link lost",
+                          "" if ok else ": " + why.splitlines()[0]))
 
     def _show(self, st):
         p, was = self.pal, self.alarm_on
@@ -600,7 +646,7 @@ class Connect(tk.Frame):
 
         lab(th.L[lang]["connPort"]).grid(row=2, column=0, sticky="w")
         self.e_port = tk.Entry(self, width=8, font=th.FONT_S)
-        self.e_port.insert(0, str(cfg.get("port") or 1024))
+        self.e_port.insert(0, str(cfg.get("port") or jl.CMD_PORT))
         self.e_port.grid(row=2, column=1, sticky="w", padx=6)
 
         lab(th.L[lang]["connUsb"]).grid(row=3, column=0, sticky="w", pady=(8, 0))
@@ -685,9 +731,9 @@ class Connect(tk.Frame):
                 link = jl.UsbLink(usb)
                 remember(self.cfg, "usb", usb)
             elif ip:
-                port = int(self.e_port.get().strip() or 1024)
+                port = int(self.e_port.get().strip() or jl.CMD_PORT)
                 link = jl.Hl2Link(ip, port)
-                link.read_status()          # prove it before closing the dialog
+                link.alive()                # prove it before closing the dialog
                 remember(self.cfg, "hl2", ip, port)
             else:
                 self._search()
@@ -699,14 +745,20 @@ class Connect(tk.Frame):
         self.master.quit()
 
 
-def try_saved(cfg, settle=None):
-    """What worked last time, if it still does."""
+def try_saved(cfg, settle=None, allow_usb=True):
+    """What worked last time, if it still does.
+
+    allow_usb is what --no-usb turns off. Without it the flag only kept the
+    search for a cable from running, and a remembered USB connection still
+    won - so a run meant to put load on the HL2's bridge could quietly go
+    over the cable instead and measure nothing.
+    """
     try:
-        if cfg.get("kind") == "usb" and cfg.get("usb"):
+        if allow_usb and cfg.get("kind") == "usb" and cfg.get("usb"):
             return jl.UsbLink(cfg["usb"])
         if cfg.get("hl2"):
-            link = jl.Hl2Link(cfg["hl2"], cfg.get("port") or 1024, settle=settle)
-            link.read_status()
+            link = jl.Hl2Link(cfg["hl2"], cfg.get("port") or jl.CMD_PORT, settle=settle)
+            link.alive()
             return link
     except (jl.LinkError, OSError):
         pass
@@ -714,7 +766,8 @@ def try_saved(cfg, settle=None):
 
 
 def open_link(args, cfg):
-    """Command line first, then the remembered address, then a broadcast.
+    """Command line first, then a USB cable, then the remembered address,
+    then a broadcast.
 
     Says out loud what it tried. Started from an icon this goes to the
     launcher's log, and it is the only way to tell a radio that is switched off
@@ -725,15 +778,34 @@ def open_link(args, cfg):
     if args.hl2:
         return jl.Hl2Link(args.hl2, args.port, settle=args.settle)
 
+    # Before the remembered address, not after it: the point of preferring the
+    # cable is to keep the HL2's I2C bridge free, and a remembered address would
+    # otherwise win every time the cable happens to be plugged in.
+    if not args.no_usb:
+        link = jl.UsbLink.find()
+        if link:
+            say("connected over USB: %s" % link.port)
+            remember(cfg, "usb", link.port)
+            return link
+        if jl.UsbLink.ports():
+            say("a Pico is on USB but did not answer - trying the network")
+
     say("local addresses: %s" % (jl.Hl2Link.local_addresses() or "none"))
-    if cfg.get("hl2") or cfg.get("usb"):
-        say("trying the remembered %s" % (cfg.get("usb") or
-                                          "%s:%s" % (cfg.get("hl2"), cfg.get("port"))))
-    link = try_saved(cfg, args.settle)
+    # What try_saved() will actually reach for, which is decided by 'kind' -
+    # not whichever of the two addresses happens to still be in the file. Both
+    # are kept, so naming the USB port while the network is tried is exactly
+    # the kind of thing a log is read to rule out.
+    usb_saved = (not args.no_usb and cfg.get("kind") == "usb"
+                 and cfg.get("usb"))
+    remembered = cfg["usb"] if usb_saved else (
+        "%s:%s" % (cfg.get("hl2"), cfg.get("port")) if cfg.get("hl2") else None)
+    if remembered:
+        say("trying the remembered %s" % remembered)
+    link = try_saved(cfg, args.settle, allow_usb=not args.no_usb)
     if link:
         say("connected to %s" % link.describe())
         return link
-    if cfg.get("hl2") or cfg.get("usb"):
+    if remembered:
         say("  that did not answer")
 
     say("searching the network …")
@@ -794,7 +866,10 @@ def main():
         return 1
     ap = argparse.ArgumentParser(description="JUMA PA control via the HL2 IO board")
     ap.add_argument("--hl2", metavar="IP", help="the Hermes Lite 2's address")
-    ap.add_argument("--port", type=int, default=1024, help="its command port")
+    ap.add_argument("--port", type=int, default=jl.CMD_PORT,
+                    help="its command port")
+    ap.add_argument("--no-usb", action="store_true",
+                    help="do not look for a Pico on USB, go over the HL2")
     ap.add_argument("--usb", metavar="DEV", help="the Pico's serial port instead")
     ap.add_argument("--settle", type=float, default=None,
                     help="seconds between commands to the HL2 (default %.3f)"

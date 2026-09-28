@@ -52,7 +52,6 @@ REG_JUMA_WATTS10_MSB = 0x58
 REG_JUMA_SWR100_MSB = 0x5A
 REG_JUMA_BANNER_IDX = 0x5C
 REG_JUMA_BANNER_CH = 0x5D
-REG_JUMA_SAVED = 0x5E
 REG_SNAP = 0x5F
 SNAP_BASE = 0x60
 SNAP_GROUPS = 7
@@ -108,6 +107,16 @@ class Status:
 
     def __init__(self):
         self.link = False          # the values below are fresh
+        # Only the USB route fills these, and only a firmware that reports
+        # them: what the I2C bus looks like from the Pico's own pins. The
+        # point of them is to be readable when that bus is dead.
+        self.i2c_writes = None     # register writes the Pico has seen
+        self.i2c_idle = None       # seconds since the last one
+        self.sda = None            # pad levels, 1 = idle high
+        self.scl = None
+        self.sda_low_ms = None     # how long SDA has been held low - the one
+        self.scl_low_ms = None     # that matters, see below
+        self.recoveries = None     # times the firmware clocked the bus free
         self.operate = False
         self.auto_sel = False      # the PA selects bands itself
         self.pa_tx = False
@@ -172,6 +181,25 @@ def parse_pa_line(line, st):
     return True
 
 
+# Port 1025, and that is not a guess: the maintainer's own tool goes out of its
+# way to avoid 1024. n2adr_ioboard.pyw replaces the discovery function wholesale
+#
+#     def no_port_1024_discover(ifaddr=None, verbose=2):
+#       return hermeslite.discover_by_port(ifaddr, 1025, verbose)
+#     hermeslite.discover = no_port_1024_discover
+#
+# and connects to a known address the same way, (ip, 1025). The name says the
+# intent. 1024 is where the SDR software's data stream lives, and a second
+# program on it is a second program in the way.
+#
+# Both ports answer discovery - measured on a gateware 74.2, a datagram sent to
+# 1024 is answered FROM 1025 - so the reply's source port cannot settle it
+# either. 1025 is tried first and 1024 after it, and whichever answers is kept
+# for the session, so a radio that wants the other one still works.
+CMD_PORT = 1025          # what a link uses when nobody says otherwise
+PORTS = (1025, 1024)     # everything worth trying, in the order to try it
+
+
 class Radio(collections.namedtuple("Radio", "ip port mac gateware")):
     """One Hermes Lite 2 that answered.
 
@@ -191,6 +219,9 @@ def decode_discovery(data, addr):
         return None
     mac = "%02x:%02x:%02x:%02x:%02x:%02x" % struct.unpack("BBBBBB", data[3:9])
     gateware = "%d.%d" % (data[0x09], data[0x15])
+    # addr[1] is the port the reply came from, which is where this radio has a
+    # socket open - the first thing worth trying, not the last word. Hl2Link
+    # falls back to the others if it stays silent.
     return Radio(addr[0], addr[1], mac, gateware)
 
 
@@ -271,11 +302,44 @@ class Hl2Link:
     # a transmitter to run.
     SETTLE = 0.02
 
-    def __init__(self, ip, port=1024, settle=None, timeout=1.0):
+    # After a command goes unanswered, leave the bridge alone for a while
+    # instead of coming straight back. A silent bridge means it is busy with
+    # the radio's own traffic, and the gateware drops what arrives while it is
+    # busy - including its own write to the filter board. Asking harder at that
+    # moment is the one thing that cannot help.
+    #
+    # It also shortens a failed round from seconds to nothing: the first
+    # command pays the retries, the rest of the round is refused without a
+    # packet, and the window says so instead of freezing while it waits.
+    COOL_BASE = 1.0                 # doubles per consecutive failure
+    COOL_MAX  = 8.0
+
+    # Both taken from n2adr_ioboard.pyw, which asks the same bridge the same
+    # way: HL.command(0x3d, cmd, sleep=0, timeout=0.5, attempts=2). Waiting a
+    # full second three times over made a dead link cost three seconds per
+    # command, and with poll() driving one command per tick that is three
+    # seconds the window spends not drawing.
+    TIMEOUT  = 0.5
+    ATTEMPTS = 2
+
+    # The gap between commands when something here has to send more than one.
+    #
+    # Not politeness - this is the fault. Measured with stress_bridge.py at the
+    # same 26 commands a second: sent one at a time, 47355 of them over half an
+    # hour and the bus never blinked. Sent in bursts of 24, it deadlocked after
+    # 19454, and the only way back was a power cycle of the radio. Rate is not
+    # what the gateware's command path minds; commands treading on each other is.
+    #
+    # So nothing in here may send two in a row. A window uses poll() and gets
+    # this for free from its own tick; the few calls that must have an answer
+    # before they can continue pace themselves with this instead.
+    PACE = 0.15
+
+    def __init__(self, ip, port=CMD_PORT, settle=None, timeout=None):
         self.ip = ip
         self.port = port
         self.settle = self.SETTLE if settle is None else settle
-        self.timeout = timeout
+        self.timeout = self.TIMEOUT if timeout is None else timeout
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.setblocking(False)
@@ -283,8 +347,15 @@ class Hl2Link:
         self._mode_seen = 0
         self._fault_seen = 0
         self._last_gen = None
+        self._step = 0                   # poll(): 0 asks, 1..7 read a group
+        self._groups = [None] * SNAP_GROUPS
         self.rounds = 0          # snapshots asked for
         self.retries = 0         # times a set had to be read again
+        self._cool_until = 0.0   # no packets before this
+        self._fails = 0          # consecutive unanswered commands
+        # Ports still worth trying, the one asked for first. Emptied by the
+        # first answer, so the search happens once per link and not per command.
+        self._untried = [p for p in PORTS if p != self.port]
 
     @staticmethod
     def local_addresses():
@@ -320,7 +391,7 @@ class Hl2Link:
         """
         found = []
         sources = [None] + Hl2Link.local_addresses()
-        for port in (1025, 1024):
+        for port in PORTS:
             for src in sources:
                 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -383,7 +454,7 @@ class Hl2Link:
         found = []
         for src in Hl2Link.local_addresses():
             net = src.rsplit(".", 1)[0]
-            for port in (1025, 1024):
+            for port in PORTS:
                 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 s.setblocking(False)
@@ -435,9 +506,45 @@ class Hl2Link:
 
     def _command(self, cmd4):
         """Send one command packet and return its 60-byte response."""
+        left = self._cool_until - time.time()
+        if left > 0:
+            raise LinkError("the HL2 did not answer - leaving the bridge alone "
+                            "for another %.1f s" % left)
+
         msg = bytes([0xEF, 0xFE, 0x05, 0x7F, self.CMD_BUS2 << 1]) + cmd4 + bytes(51)
+
+        # The port asked for first, then the ones not tried yet. Only the first
+        # pass pays for this: an answer empties the list.
+        while True:
+            data = self._attempt(msg)
+            if data is not None:
+                self._fails = 0
+                self._cool_until = 0.0
+                self._untried = []
+                time.sleep(self.settle)
+                return data
+            if not self._untried:
+                break
+            self.port = self._untried.pop(0)
+            trace("no answer - trying port %d" % self.port)
+
+        # The shift is clamped, not just the result. COOL_MAX bounds what comes
+        # out of min(), but the multiplication happens first, and a radio that
+        # is away for half an hour gets there: at about one failure a second,
+        # 2 ** 1030 is an integer too large to turn into a float, and the
+        # OverflowError came out of a Tk callback and took the window with it.
+        # Measured the hard way - it ended an endurance run 31 minutes in and
+        # threw away everything after the one line that mattered.
+        self._fails += 1
+        self._cool_until = time.time() + min(
+            self.COOL_MAX, self.COOL_BASE * (2 ** min(self._fails - 1, 16)))
+        raise LinkError("no answer from the HL2 at %s:%d%s"
+                        % (self.ip, self.port, local_network_hint()))
+
+    def _attempt(self, msg):
+        """Send to self.port up to three times. The 60-byte reply, or None."""
         self._drain()
-        for _ in range(3):
+        for _ in range(self.ATTEMPTS):
             try:
                 self.sock.sendto(msg, (self.ip, self.port))
             except OSError as e:
@@ -449,10 +556,8 @@ class Hl2Link:
             if select.select([self.sock], [], [], self.timeout)[0]:
                 data, addr = self.sock.recvfrom(60)
                 if len(data) == 60 and data[0:2] == b"\xef\xfe":
-                    time.sleep(self.settle)
                     return data
-        raise LinkError("no answer from the HL2 at %s:%d%s"
-                        % (self.ip, self.port, local_network_hint()))
+        return None
 
     def write(self, reg, value):
         self._command(bytes([self.OP_WRITE, 0x80 | self.I2C_ADDR,
@@ -468,28 +573,74 @@ class Hl2Link:
         return [d & 0xFF, (d >> 8) & 0xFF, (d >> 16) & 0xFF, (d >> 24) & 0xFF]
 
     def read_status(self, slow_fields=True):
-        """One picture of the PA, proved coherent.
+        """One picture of the PA, proved coherent, now - by driving poll() until
+        it has one.
 
-        Ask the firmware for a snapshot, then read the seven groups. Every group
-        carries the same tag, so a read the bridge dropped - which comes back as
-        an older group - shows up as a tag that does not match, and we try again.
-        Without this about one round in 25 is silently shifted; measured, not
-        feared.
+        For a caller that needs an answer before it can go on: testing a
+        remembered connection, a script that prints one line. A window should
+        use poll() instead, so the radio's bridge sees one command at a time.
 
         slow_fields is ignored here: a snapshot costs the same either way.
         """
-        self.rounds += 1
-        for attempt in range(3):
-            st = self._read_snapshot()
+        # rounds and retries are counted by poll(), which does the work.
+        # Enough turns for three full sets. A set is refused when the bridge
+        # dropped one of its reads, and about one in 25 is - three is the same
+        # allowance the burst version made.
+        #
+        # PACE between them, which makes this take a second or so instead of
+        # fifty milliseconds. That is the price: this used to be eight commands
+        # back to back, which is the shape that kills the bus, and it ran on
+        # every connect.
+        for i in range(3 * (SNAP_GROUPS + 1)):
+            if i:
+                time.sleep(self.PACE)
+            st = self.poll()
             if st is not None:
                 return st
-            self.retries += 1
         raise LinkError("the HL2 keeps dropping reads - no coherent snapshot")
 
-    def _read_snapshot(self):
-        """One attempt. None when the groups did not agree."""
-        self.write(REG_SNAP, 1)
-        groups = [self.read4(SNAP_BASE + 4 * i) for i in range(SNAP_GROUPS)]
+    def poll(self):
+        """Advance by exactly ONE command. A Status when a set just completed.
+
+        This is the shape n2adr_ioboard.pyw uses, and the reason to copy it is
+        the bridge: the gateware drops what arrives while it is busy, including
+        its own write to the filter board, and it has no timeout and no bus
+        recovery. His tool has polled that bridge for years at one command per
+        100 ms round, never two in a row. Ours asked for a snapshot and then
+        read seven groups back to back - and on a set the bridge had torn, read
+        all eight again, up to 24 commands in one go. Same commands per second,
+        a completely different profile, and an endurance run here lost the bus
+        after 31 minutes of it.
+
+        Spreading the reads is safe: a snapshot is only retaken when REG_SNAP is
+        written again, so the generation cannot move underneath them. The stamps
+        still prove the whole set came out of one.
+        """
+        if self._step == 0:
+            self.write(REG_SNAP, 1)
+            self._groups = [None] * SNAP_GROUPS
+            self._step = 1
+            return None
+
+        i = self._step - 1
+        self._groups[i] = self.read4(SNAP_BASE + 4 * i)
+        self._step += 1
+        if self._step <= SNAP_GROUPS:
+            return None
+
+        self._step = 0
+        self.rounds += 1
+        st = self._finish(self._groups)
+        if st is None:
+            # The bridge tore this set: it dropped one of the reads, and the
+            # stamps caught it. Counted here because this is the direct measure
+            # of how busy the bridge is, and therefore the number to watch while
+            # finding out whether our polling is what costs the bus.
+            self.retries += 1
+        return st
+
+    def _finish(self, groups):
+        """A complete set of groups -> Status, or None when they disagree."""
         stamps = [g[0] for g in groups]
         if all(s == 0 for s in stamps):    # firmware without the snapshot block
             return self._read_direct()
@@ -536,18 +687,25 @@ class Hl2Link:
 
     def _read_direct(self, slow_fields=True):
         """The old way, register by register. Only for firmware without the
-        snapshot block - it cannot tell a dropped read from a good one."""
+        snapshot block - it cannot tell a dropped read from a good one.
+
+        Paced like everything else here. Five to eight commands back to back is
+        the shape that deadlocks the radio, and an old image is no reason to
+        risk that - it only makes this path slower, and it is already the one
+        that cannot prove its own answers.
+        """
         st = Status()
-        link, flags, band, want = self.read4(REG_LINK)
-        gain, alarms, swr, volts = self.read4(REG_GAIN)
-        amps, temp, w_msb, w_lsb = self.read4(REG_AMPS)
+        pace = self.PACE
+        link, flags, band, want = self._sleep_then_read4(REG_LINK)
+        gain, alarms, swr, volts = self._sleep_then_read4(REG_GAIN)
+        amps, temp, w_msb, w_lsb = self._sleep_then_read4(REG_AMPS)
         # volts x 100 and amps x 100, the PA's own precision
-        v_hi, v_lo, a_hi, a_lo = self.read4(REG_JUMA_VOLTS100_MSB)
-        w_hi, w_lo, s_hi, s_lo = self.read4(REG_JUMA_WATTS10_MSB)
+        v_hi, v_lo, a_hi, a_lo = self._sleep_then_read4(REG_JUMA_VOLTS100_MSB)
+        w_hi, w_lo, s_hi, s_lo = self._sleep_then_read4(REG_JUMA_WATTS10_MSB)
         if slow_fields:
-            fan, replies, bad, lost = self.read4(REG_FAN)
-            mode, cmd, _l2, _f2 = self.read4(REG_MODE)
-            fault = self.read4(REG_FAULT)[0]
+            fan, replies, bad, lost = self._sleep_then_read4(REG_FAN)
+            mode, cmd, _l2, _f2 = self._sleep_then_read4(REG_MODE)
+            fault = self._sleep_then_read4(REG_FAULT)[0]
             st.fan, st.replies, st.badlines, st.lost = fan, replies, bad, lost
             st.mode, st.fault = mode, fault
         else:
@@ -578,13 +736,39 @@ class Hl2Link:
         self._fan_seen, self._mode_seen, self._fault_seen = st.fan, st.mode, st.fault
         return st
 
+    def _sleep_then_read4(self, reg):
+        """read4 with a gap in front of it, for the paths that need several."""
+        time.sleep(self.PACE)
+        return self.read4(reg)
+
+    def alive(self):
+        """One command, to prove the radio answers. Raises if it does not.
+
+        What a caller wants before it commits to a connection, and read_status()
+        was doing it with a whole snapshot - eight commands back to back, on
+        every start. That is the shape that deadlocks the bus.
+        """
+        self.read4(REG_LINK)
+        return True
+
     def read_banner(self):
-        """What the PA called itself at power-up, a character at a time."""
+        """What the PA called itself at power-up, a character at a time.
+
+        Paced, and therefore slow - a banner of forty characters is eighty
+        commands and about twelve seconds. It used to send all eighty back to
+        back, which is the most dangerous thing in this file: the same shape
+        deadlocked the bus in fifteen minutes when a test did it deliberately.
+        Nothing calls this today; if something is going to, it should read the
+        characters from its own tick loop rather than wait here.
+        """
         self.write(REG_JUMA_BANNER_IDX, 0)
+        time.sleep(self.PACE)
         n = self.read4(REG_JUMA_BANNER_IDX)[1]
         out = []
         for i in range(1, min(n, 47) + 1):
+            time.sleep(self.PACE)
             self.write(REG_JUMA_BANNER_IDX, i)
+            time.sleep(self.PACE)
             out.append(chr(self.read4(REG_JUMA_BANNER_IDX)[1]))
         return "".join(out)
 
@@ -612,6 +796,64 @@ class UsbLink:
     defaults.
     """
 
+    # The Pico's USB identity. Raspberry Pi's vendor id; the product id is
+    # whatever the SDK's stdio_usb hands out, so only the vendor is matched.
+    # Matching it is what keeps a probe off a GPS or a modem: those get neither
+    # an open nor a written line.
+    PICO_VID = 0x2E8A
+
+    @staticmethod
+    def ports():
+        """Serial ports that could be a Pico running this firmware.
+
+        Nothing here may raise. Enumerating ports is a convenience on the way
+        to the network route, and on macOS it goes through IOKit by ctypes -
+        which PyInstaller says out loud it cannot follow into a bundle
+        ("only basenames are supported with ctypes imports"). So a frozen app
+        can fail here in ways a script never does, and the answer to all of
+        them is the same: no ports, take the network.
+        """
+        try:
+            from serial.tools import list_ports
+            out = []
+            for p in list_ports.comports():
+                if getattr(p, "vid", None) == UsbLink.PICO_VID:
+                    out.append(p.device)
+            return out
+        except Exception as e:
+            trace("USB: cannot list ports (%s)" % e)
+            return []
+
+    @staticmethod
+    def find(timeout=2.5):
+        """The first port that answers as this firmware, or None.
+
+        Worth preferring over the HL2's I2C bridge whenever the cable is there:
+        the bridge is shared with the radio's own traffic, and every command
+        that goes over it is a command the gateware's filter board write can be
+        dropped behind. Over USB the watching costs the bus nothing.
+
+        The proof asked for is a telemetry line. An open alone proves nothing -
+        any CDC device opens - and the firmware may have come up in proxy mode,
+        which the constructor steps out of.
+        """
+        for dev in UsbLink.ports():
+            link = None
+            try:
+                link = UsbLink(dev)
+                end = time.time() + timeout
+                while time.time() < end:
+                    link.pump()
+                    if link.saw_firmware:
+                        trace("USB: %s answered" % dev)
+                        return link
+                trace("USB: %s opened but said nothing in %.1f s" % (dev, timeout))
+            except (LinkError, OSError) as e:
+                trace("USB: %s - %s" % (dev, e))
+            if link:
+                link.close()
+        return None
+
     def __init__(self, port, baud=115200, timeout=0.2):
         try:
             import serial
@@ -620,6 +862,9 @@ class UsbLink:
         self.ser = serial.Serial(port, baud, timeout=timeout)
         self.port = port
         self._st = Status()
+        # Set by _take_telemetry(): a line only this firmware sends. find()
+        # waits for it rather than trusting that the port opened.
+        self.saw_firmware = False
         # Ask for the telemetry feed, and step out of proxy mode if the image
         # came up in it - but with '+' and '-', so that whatever else the mode
         # holds, the OPERATE hold in particular, is left alone.
@@ -650,6 +895,7 @@ class UsbLink:
         return changed
 
     def _take_telemetry(self, line):
+        self.saw_firmware = True
         fields = {}
         for kv in line.split()[1:]:
             if b"=" in kv:
@@ -667,11 +913,34 @@ class UsbLink:
         st.badlines = int(fields.get("bad", b"0"))
         st.lost = int(fields.get("lost", b"0"))
         st.following = not (st.mode & MODE_NO_BAND)
+        # Absent in an older image, so left as None rather than guessed at.
+        if "sda" in fields:
+            st.i2c_writes = int(fields.get("wr", b"0"))
+            st.i2c_idle = int(fields.get("idle", b"0"))
+            st.sda = int(fields["sda"])
+            st.scl = int(fields.get("scl", b"1"))
+            # A stuck device holds SDA, not SCL: it is driving a data bit and
+            # waiting for a clock edge that never comes. Measured on a bus that
+            # had been dead for five hours, SDA read low in 22 of 25 samples
+            # while SCL flickered - so watching SCL alone reported nothing wrong.
+            st.sda_low_ms = int(fields.get("slow", b"0"))
+            st.scl_low_ms = int(fields.get("clow", fields.get("low", b"0")))
+            st.recoveries = int(fields.get("rec", b"0"))
         return True
 
     def read_status(self):
         self.pump()
         return self._st
+
+    def poll(self):
+        """The same call the bridge needs paced, on a cable that needs nothing.
+
+        Hl2Link.poll() spends one command per call because the radio's bridge is
+        shared. Here the port is ours, the firmware sends its line by itself,
+        and there is nothing to spread out - so a poll is just a read. Having
+        the method on both means the window asks the same question either way.
+        """
+        return self.read_status()
 
     # The register writes the firmware's console understands.
     def write(self, reg, value):

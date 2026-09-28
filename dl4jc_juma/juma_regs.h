@@ -71,7 +71,8 @@
 #define REG_JUMA_BANNER_IDX 0x5C  // 92  rw  which character to look at
 #define REG_JUMA_BANNER_CH  0x5D  // 93  ro  that character, or the length at 0
 
-#define REG_JUMA_SAVED      0x5E  // 94  ro  1 = the mode below came out of flash
+// 0x5E was REG_JUMA_SAVED, back when the mode was kept in flash. Left free
+// rather than reused, so an older host reading it gets 0 and not a surprise.
 
 // --- A snapshot that can be checked ---------------------------------------
 // The HL2's I2C bridge silently drops a command that arrives while it is busy
