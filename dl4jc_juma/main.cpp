@@ -264,6 +264,20 @@ static void scl_pulse(void)
 	busy_wait_us(5);
 }
 
+// --- Interrupt priorities -------------------------------------------------
+// The HL2's I2C master has no clock stretching and no time-out (see above). When
+// it reads a register, the RP2040 holds SCL low until the interrupt has put the
+// byte into the FIFO - the master does not see that and clocks on. So the I2C
+// interrupt must never wait for another one. The UART interrupt was at the same
+// priority, and since the PA firmware (v4.0x DL4JC) sends its status line in one
+// piece, 44 bytes arrive back to back every poll. I2C gets the highest priority,
+// the UART the lowest: its 32-byte FIFO and the ring buffer cover the delay.
+static void set_irq_priorities(void)
+{
+	irq_set_priority(I2C1_IRQ, PICO_HIGHEST_IRQ_PRIORITY);
+	irq_set_priority(UART_ID == uart0 ? UART0_IRQ : UART1_IRQ, PICO_LOWEST_IRQ_PRIORITY);
+}
+
 static void bus_recover(void)
 {
 	// Step 1: our own peripheral, in case it is the one holding the bit.
@@ -304,6 +318,7 @@ static void bus_recover(void)
 	i2c_slave_init(i2c1, I2C1_ADDRESS, &i2c_slave_handler);
 
 done:
+	set_irq_priorities();		// i2c_slave_init() installed the handler again
 	recoveries++;
 	sda_low_since = scl_low_since = 0;
 	sda_low_ms = scl_low_ms = 0;
@@ -1119,6 +1134,7 @@ int main(void)
 	irq_set_exclusive_handler(UART_IRQ, on_uart_rx);
 	irq_set_enabled(UART_IRQ, true);
 	uart_set_irq_enables(UART_ID, true, false);	// receive only
+	set_irq_priorities();
 
 	while (1) {
 		sleep_ms(1);			// this sets the polling frequency
